@@ -1,0 +1,62 @@
+@font-face {
+	/* Simulate Where's Waldo font */
+	font-family: "optima";
+	src: url(Optima-ExtraBlack.ttf);
+}
+
+* {
+	font-family: "optima";
+	font-size: 24px;
+	color: #00adef;
+
+	/* Old stroke technique */
+	/* text-shadow:
+    -1px -1px 0 #000,  
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+	1px 1px 0 #000;*/
+	/* New stroke technique */
+	-webkit-text-fill-color: #00adef; /* Will override color (regardless of order) */
+  	-webkit-text-stroke-width: 1px;
+	-webkit-text-stroke-color: black;
+	/* Stripes */
+	background: linear-gradient(
+  		to bottom,
+		white,
+		white 50%,
+  		red 50%,
+		red
+	);
+	/* The rectangle in which to repeat */
+	background-size: 100% 64px;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+}
+
+canvas {
+	display: block;
+	background-color: white;
+	/* Center canvas */
+	margin-left: calc((100% - 6*64px)/2);
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+p {
+	text-align: center;
+	height: 64px;
+	margin: 0;
+}
+
+span {
+	font-size: 26px;
+}
