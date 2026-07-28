@@ -8,17 +8,6 @@ var sprReady=false;
 spr.onload=function() { sprReady=true; };
 spr.src='sprites.png';
 
-// init cards
-var cards;
-var cardFaceDown={x:1765, y:30};
-var focusedCard=-1;
-var hasCountdown=false;
-
-// misc
-var level=1;
-var clicks=0;
-var seconds=0;
-
 // Fisher-Yates Shuffle
 var shuffle=function(array) {
 	var counter = array.length;
@@ -40,6 +29,28 @@ var shuffle=function(array) {
 	return array;
 }
 
+function createDeck() {
+    const suits = ["clubs", "hearts", "spades", "diamonds"];
+    const deck = {};
+
+    for (let i = 0; i < suits.length; i++) {
+        const suit = suits[i];
+        for (let value = 1; value <= 13; value++) {
+            const id = i * 13 + value;
+            deck[id] = { id, value, color: suit };
+        }
+    }
+
+    return deck;
+}
+
+// init cards
+const cards = Array.from({ length: 52 }, (_, i) => i + 1);
+const cardFaceDown = {x:1765, y:30};
+const cardSize = {width:117, height:156};
+const deck = createDeck();
+
+/*
 var init=function(lvl) {
 	level=lvl;
 	clicks=0;
@@ -174,6 +185,7 @@ var updateClicks=function() {
 	var formatSec=(sec<10)?"0"+sec:sec;
 	cl.appendChild(document.createTextNode("Clicks: "+clicks+" Time "+formatMin+":"+formatSec));
 }
+*/
 
 // drawing cards on canvas
 var render=function() {
@@ -191,7 +203,7 @@ var render=function() {
 					ctx.drawImage(spr, 64+64*cardX, 64*cardY, 64, 64, offsetX, offsetY, 64, 64);
 				}
 				// card face down
-				else ctx.drawImage(spr, cardFaceDown.x, cardFaceDown.y, 64, 64, offsetX, offsetY, 64, 64);
+				else ctx.drawImage(spr, cardFaceDown.x, cardFaceDown.y, cardSize.width, cardSize.height, offsetX, offsetY, cardSize.width, cardSize.height);
 			
 				offsetX+=64;
 			}
@@ -212,5 +224,5 @@ var main = function () {
 var w = window;
 requestAnimationFrame = w.requestAnimationFrame || w.webkitRequestAnimationFrame || w.msRequestAnimationFrame || w.mozRequestAnimationFrame;
 
-init(level);
+//init(level);
 main();
