@@ -4,6 +4,14 @@
 
 ## Main game
 
+- [ ] decks containing all the cards
+    - a card in this deck has id, value (1-13) and color (clubs, hearts, spades, diamonds)
+    - cards in the lists are ids
+- [ ] list of players (at least 2)
+    - each player has at 1-2 health cards and 1 shield, plus possible charges
+- [ ] list of face down cards
+- [ ] list of discard pile
+
 ## Rules
 
 - [ ]  Game of knights is a game using a pack of 52 cards. It can be played with 2+ players.
