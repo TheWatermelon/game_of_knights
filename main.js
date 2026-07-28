@@ -6,11 +6,11 @@ var ctx=c.getContext('2d');
 var spr=new Image();
 var sprReady=false;
 spr.onload=function() { sprReady=true; };
-spr.src='sprites64.png';
+spr.src='sprites.png';
 
 // init cards
 var cards;
-var cardFaceDown={x:0, y:0};
+var cardFaceDown={x:1765, y:30};
 var focusedCard=-1;
 var hasCountdown=false;
 
