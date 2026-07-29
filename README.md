@@ -2,15 +2,38 @@
 
 # TODO
 
-## Main game
+## Menus
 
-- [ ] decks containing all the cards
-    - a card in this deck has id, value (1-13) and color (clubs, hearts, spades, diamonds)
+### Game
+
+- [ ] choose number of players (2-4), human and possibly IA
+- [ ] button to see the rules
+- [ ] button to start game
+
+### Rules
+
+- [ ] List of rules, possibly with images
+- [ ] button to start game
+
+## Game
+
+- [ ] deck containing all the cards
+    - a card in this deck has `id`, `value` (1-13) and `color` (clubs, hearts, spades, diamonds)
     - cards in the lists are ids
-- [ ] list of players (at least 2)
-    - each player has at 1-2 health cards and 1 shield, plus possible charges
-- [ ] list of face down cards
-- [ ] list of discard pile
+- [ ] `players`: list of players (at least 2)
+    - each player has a `player.name` at 1-2 `player.hp`cards and 1 `player.shield`, plus possible charges `player.charge`
+- [ ] `drawPile`: list of face down cards
+    - shuffle the ids 1-52
+- [ ] `discardPile`: list of discard pile
+- [ ] distributing cards between players
+    - take 3 cards from the face down list to add to players' hp and shield
+- [ ] taking turns (beginning from player1), each player `currentPlayer` can choose an action between **attack, change shield, charge** and a `targetKnight`
+    - **attack**: choose a knight, then take a card from drawPile (`drawCard`), reveal it. If `drawCard` + `currentPlayer.charge` (sum of charge(s) value(s)) > defending player.shield, subtract the difference from the life point, then find a way to represent their new life points (put `defendingPlayer.hp` card(s) in `discardPile` then pick from first `discardPile` then bottom of `drawPile` cards corresponding `defendingPlayer.hp`)
+    - **change shield**: put `targetPlayer.shield` in `discardPile` then put `drawCard` in `targetPlayer.shield``
+    - **charge**: add `drawCard` to `targetPlayer.charge`
+- [ ] check loose condition: a player has no hp
+- [ ] check win condition: only one player remaining
+
 
 ## Rules
 
