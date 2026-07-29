@@ -1,27 +1,37 @@
 // init canvas
-var c=document.getElementById('myCanvas');
-var ctx=c.getContext('2d');
+let c=document.getElementById('myCanvas');
+let ctx=c.getContext('2d');
 
 // load sprites
-var spr=new Image();
-var sprReady=false;
+let spr=new Image();
+let sprReady=false;
 spr.onload=function() { sprReady=true; };
 spr.src='sprites.png';
 
+// init cards
+const cardFaceDown = {x:1765, y:30}; // position of the faced down card in the sprites
+const cardSize = {width:117, height:156}; // card size in the sprites
+const deck = createDeck(); // creates a reference for the cards (id, value, color)
+let drawPile = Array.from({ length: 52 }, (_, i) => i + 1);
+let discardPile = [];
+
+// init players
+let players = [];
+
 // Fisher-Yates Shuffle
-var shuffle=function(array) {
-	var counter = array.length;
+function shuffle(array) {
+	let counter = array.length;
 
 	// While there are elements in the array
 	while (counter > 0) {
 		// Pick a random index
-		var index = Math.floor(Math.random() * counter);
+		let index = Math.floor(Math.random() * counter);
 
 		// Decrease counter by 1
 		counter--;
 
 		// And swap the last element with it
-		var temp = array[counter];
+		let temp = array[counter];
 		array[counter] = array[index];
 		array[index] = temp;
 	}
@@ -29,6 +39,7 @@ var shuffle=function(array) {
 	return array;
 }
 
+// create a reference deck
 function createDeck() {
     const suits = ["clubs", "hearts", "spades", "diamonds"];
     const deck = {};
@@ -44,11 +55,111 @@ function createDeck() {
     return deck;
 }
 
-// init cards
-const cards = Array.from({ length: 52 }, (_, i) => i + 1);
-const cardFaceDown = {x:1765, y:30};
-const cardSize = {width:117, height:156};
-const deck = createDeck();
+// create a new player
+function newPlayer(playerName) {
+	return {name: playerName, hp = [], shield = [], charge: []}
+}
+
+// move a card
+function moveCard(fromPile, toPile, card) {
+	const index = fromPile.indexOf(card);
+	if (index !== -1) {
+		const removedCard = fromPile.splice(index, 1)[0];
+		toPile.push(removedCard);
+		return removedCard;
+	} else {
+		console.log("Card not found in the origin pile");
+		return false;
+	}
+}
+
+// change a knight's shield: move the original shield to the discard pile and put the new card as the shield
+function changeShield(player) {
+	// first card of the draw pile as the new shield
+	let newCard = drawPile[0];
+	moveCard(player.shield, discardPile, player.shield[0]);
+	moveCard(drawPile, player.shield, newCard);
+}
+
+// charge a knight
+function chargeKnight(player) {
+	let newCard = drawPile[0];
+	moveCard(drawPile, player.charge, newCard);
+}
+
+// attack a knight
+function attackKnight(attackingPlayer, defendingPlayer) {
+	// compare total attack with defender's shield
+	let totalAttack = deck[drawPile[0]].value;
+	for (let c = 0; c < attackingPlayer.charge.length; c++) {
+		totalAttack += deck[attackingPlayer.charge[c]].value;
+	}
+	if (totalAttack > deck[defendingPlayer.shield[0]].value) {
+		let losingPoints = totalAttack - deck[defendingPlayer.shield[0]].value;
+
+		let totalHp = 0;
+		for (let point = 0; point < defendingPlayer.hp; point++) {
+			totalHp += deck[defendingPlayer.hp[point]].value;
+		}
+		
+		let remainingHp = Math.max(0, totalHp - losingPoints);
+		if (remainingHp == 0) then {
+			for (let point = 0; point < defendingPlayer.hp; point++) {
+				moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[point]);
+			}
+			checkPlayerDead(defendingPlayer);
+		} else {
+			// convert the remainingHp into card values [13, x]
+			// check discardPile then drawPile for compatible pairs
+			// get the compatible pair as new hp
+		}
+	}
+}
+
+// check if a player has lost
+function checkPlayerDead(player) {
+	if(player.hp.length == 0) then {
+		const indexToRemove = players.indexOf(player);
+		const playerRemoved = players.splice(indexToRemove, 1)[0];
+		return true;
+	}
+	else return false;
+}
+
+// check if a player has won
+function checkPlayerWon() {
+	if (players.length == 1) then return true;
+	else return false;
+}
+
+// init game
+function initGame(numberOfPlayers) {
+	// init players
+	for(let p = 0; p < numberOfPlayers; p++) {
+		players.push(newPlayer("Player "+p));
+	}
+	// shuffle cards
+	drawPile = shuffle(drawPile);
+	// distribute three cards to all players
+	for(let p = 0; p < players.length; p++) {
+		moveCard(drawPile, p.hp, drawPile[0]);
+		moveCard(drawPile, p.hp, drawPile[0]);
+		moveCard(drawPile, p.shield, drawPile[0]);
+	}
+}
+
+// game loop
+function gameLoop() {
+	initGame();
+
+	// while nobody has won
+	while(!checkPlayerWon()) {
+		// for each player
+		for(let p = 0; p < players.length; p++) {
+			// choose an action
+		}
+	}
+}
 
 /*
 var init=function(lvl) {
@@ -188,18 +299,18 @@ var updateClicks=function() {
 */
 
 // drawing cards on canvas
-var render=function() {
+let render=function() {
 	if(sprReady) {
-		var offsetX=0;
-		var offsetY=0;
-		for(var i=0; i<3*level; i++) {
-			for(var j=0; j<6; j++) {
-				var index=i*6+j;
+		let offsetX=0;
+		let offsetY=0;
+		for(let i=0; i<3*level; i++) {
+			for(let j=0; j<6; j++) {
+				let index=i*6+j;
 				// card face up
 				if(cards[index].show || cards[index].countdown>0) {
 					// cardX and cardY are coordinates on the sprite
-					var cardY=cards[index].id%9;
-					var cardX=Math.floor(cards[index].id/9);
+					let cardY=cards[index].id%9;
+					let cardX=Math.floor(cards[index].id/9);
 					ctx.drawImage(spr, 64+64*cardX, 64*cardY, 64, 64, offsetX, offsetY, 64, 64);
 				}
 				// card face down
@@ -214,14 +325,14 @@ var render=function() {
 }
 
 // The main game loop
-var main = function () {
+let main = function () {
 	// run the render function
 	render();
 	// Request to do this again ASAP
 	requestAnimationFrame(main);
 };
 // Cross-browser support for requestAnimationFrame
-var w = window;
+let w = window;
 requestAnimationFrame = w.requestAnimationFrame || w.webkitRequestAnimationFrame || w.msRequestAnimationFrame || w.mozRequestAnimationFrame;
 
 //init(level);
