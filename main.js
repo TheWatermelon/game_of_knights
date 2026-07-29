@@ -1,12 +1,15 @@
 // init canvas
 let c=document.getElementById('myCanvas');
+c.width = 800;
+c.height = 600;
 let ctx=c.getContext('2d');
+ctx.font = "30px serif";
 
 // load sprites
 let spr=new Image();
 let sprReady=false;
 spr.onload=function() { sprReady=true; };
-spr.src='sprites.png';
+spr.src='sprites.jpg';
 
 // init cards
 const cardFaceDown = {x:1765, y:30}; // position of the faced down card in the sprites
@@ -56,9 +59,20 @@ function createDeck() {
 }
 
 // create a new player
-function newPlayer(playerName) {
-	return {name: playerName, hp = [], shield = [], charge: []};
+function Player(playerName) {
+	this.name = playerName;
+	this.hp = [];
+	this.shield = [];
+	this.charge = [];
 }
+// change Player toString
+Player.prototype.toString = function playerToString() {
+	return "{" +
+		this.name + "; " +
+		"shield: " + getCardValue(this.shield) + "; " +
+		"hp: [" + getCardValue(this.hp[0]) + "," + getCardValue(this.hp[1])+ "]" +
+		"}";
+};
 
 // refreshDrawPile : if drawPile is empty; shuffle the discardPile into a new drawPile
 function refreshDrawPile() {
@@ -76,6 +90,7 @@ function moveCard(fromPile, toPile, card=fromPile[0]) {
 	if (index !== -1) {
 		const removedCard = fromPile.splice(index, 1)[0];
 		toPile.push(removedCard);
+		console.log("moved " + removedCard + " (" + deck[removedCard].value + " of " + deck[removedCard].color + ")");
 		return removedCard;
 	} else {
 		console.log("Card not found in the origin pile");
@@ -96,7 +111,7 @@ function getTotal(cards) {
 // check if a card's value exists in a pile
 function findReplacementCardIn(pile, value) {
 	for (let c = 0; c < pile.length; c++) {
-		if(getCardValue(pile[c]) == value) then return pile[c];
+		if(getCardValue(pile[c]) == value) return pile[c];
 	}
 	return -1;
 }
@@ -105,7 +120,7 @@ function findReplacementCardIn(pile, value) {
 // first search into the discardPile, then in the drawPile
 function findReplacementCardFor(value) {
 	let replacementCard = findReplacementCardIn(discardPile, value);
-	return replacementCard < 0 ? findReplacementCardIn(drawPile, value) : replacementCard;
+	return replacementCard < 0 ? [drawPile, findReplacementCardIn(drawPile, value)] : [discardPile, replacementCard];
 }
 
 // change a knight's shield: move the original shield to the discard pile and put the new card as the shield
@@ -128,6 +143,8 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 	let totalAttack = getCardValue(drawPile[0]);
 	totalAttack += getTotal(defendingPlayer.charge);
 
+	console.log("trying to attack " + defendingPlayer.toString() + " with " + totalAttack);
+
 	// if totalAttack goes through the shield
 	const shieldValue = getCardValue(defendingPlayer.shield[0]);
 	if (totalAttack > shieldValue) {
@@ -139,14 +156,17 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 		const remainingHp = Math.max(0, totalHp - losingPoints);
 
 		// if remainingHp is zero, that player loses the game, discarding their cards
-		if (remainingHp == 0) then {
+		if (remainingHp == 0) {
 			// discarding hp cards
+			console.log(defendingPlayer.name + " loses their health points");
 			while (defendingPlayer.hp.length > 0) {
 				moveCard(defendingPlayer.hp, discardPile);
 			}
 			// discarding their shield
+			console.log(defendingPlayer.name + " loses their shield");
 			moveCard(defendingPlayer.shield, discardPile);
 			// remove the player from the game
+			console.log(defendingPlayer.name + " loses the game");
 			checkPlayerDead(defendingPlayer);
 		} else {
 			// try replacing only one card to match the new hp
@@ -156,16 +176,23 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 		        const replacementValue = remainingHp - unchangedTotal;
 				// if replacementValue can be a card
 		        if (replacementValue >= 1 && replacementValue <= 13) {
-		            const replacementCard = findReplacementCardFor(replacementValue);
-					if (replacementCard > 0) moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[i]);
-					else {
-						// the replacement card isn't in either pile; we need to find at least 2 cards
+		            let replacementCard = findReplacementCardFor(replacementValue);
+					if (replacementCard[1] > 0) {
+						moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[i]);
+						moveCard(replacementCard[0], defendingPlayer.hp, replacementCard[1]);
+					} else {
+						
 					}
-					return replacementCard;
+					break;
 		        }
 		    }
 		}
+	} else {
+		console.log ("nothing happens...");
 	}
+
+	// discarding the attack card
+	moveCard(drawPile, discardPile);
 
 	// defending player looses all their charges on an attack
 	while(defendingPlayer.charge.length > 0) {
@@ -175,7 +202,7 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 
 // check if a player has lost
 function checkPlayerDead(player) {
-	if(player.hp.length == 0) then {
+	if(player.hp.length == 0) {
 		const indexToRemove = players.indexOf(player);
 		const playerRemoved = players.splice(indexToRemove, 1)[0];
 		return true;
@@ -185,23 +212,24 @@ function checkPlayerDead(player) {
 
 // check if a player has won
 function checkPlayerWon() {
-	if (players.length == 1) then return true;
+	if (players.length == 1) return true;
 	else return false;
 }
 
 // init game
 function initGame(numberOfPlayers) {
 	// init players
-	for(let p = 0; p < numberOfPlayers; p++) {
-		players.push(newPlayer("Player "+p));
+	for(let p = 1; p <= numberOfPlayers; p++) {
+		players.push(new Player("Player "+p));
 	}
 	// shuffle cards
 	drawPile = shuffle(drawPile);
+	//console.log(drawPile);
 	// distribute three cards to all players
 	for(let p = 0; p < players.length; p++) {
-		moveCard(drawPile, p.hp);
-		moveCard(drawPile, p.hp);
-		moveCard(drawPile, p.shield);
+		moveCard(drawPile, players[p].hp);
+		moveCard(drawPile, players[p].hp);
+		moveCard(drawPile, players[p].shield);
 	}
 }
 
@@ -345,7 +373,15 @@ var updateClicks=function() {
 // drawing cards on canvas
 let render=function() {
 	if(sprReady) {
+		ctx.fillStyle = "white";
+		ctx.fillRect(0, 0, 800, 600);
+		ctx.fillStyle = "black";
 		//ctx.drawImage(spr, 64+64*cardX, 64*cardY, 64, 64, offsetX, offsetY, 64, 64);
+		for (let p = 0; p < players.length; p++) {
+			ctx.fillText(players[p].toString(), 50, 50*(p+1));
+		}
+		ctx.fillText("drawPile: length " + drawPile.length + ", top " + getCardValue(drawPile[0]) + " of " + deck[drawPile[0]].color, 50, 150);
+		ctx.fillText("discardPile: length " + discardPile.length, 50, 200);
 	}
 }
 
