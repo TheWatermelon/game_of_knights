@@ -57,11 +57,21 @@ function createDeck() {
 
 // create a new player
 function newPlayer(playerName) {
-	return {name: playerName, hp = [], shield = [], charge: []}
+	return {name: playerName, hp = [], shield = [], charge: []};
 }
 
-// move a card
-function moveCard(fromPile, toPile, card) {
+// refreshDrawPile : if drawPile is empty; shuffle the discardPile into a new drawPile
+function refreshDrawPile() {
+	if(drawPile.length === 0) {
+		drawPile = discardPile;
+		discardPile = [];
+		shuffle(drawPile);
+		return true;
+	} else return false;
+}
+
+// move a card, if the third parameter is omitted, taking the first card of the list
+function moveCard(fromPile, toPile, card=fromPile[0]) {
 	const index = fromPile.indexOf(card);
 	if (index !== -1) {
 		const removedCard = fromPile.splice(index, 1)[0];
@@ -73,46 +83,93 @@ function moveCard(fromPile, toPile, card) {
 	}
 }
 
+// get card value from index
+function getCardValue(card) {
+	return deck[card].value;
+}
+
+// get sum of values in a list of cards
+function getTotal(cards) {
+    return cards.reduce((sum, card) => sum + getCardValue(card), 0);
+}
+
+// check if a card's value exists in a pile
+function findReplacementCardIn(pile, value) {
+	for (let c = 0; c < pile.length; c++) {
+		if(getCardValue(pile[c]) == value) then return pile[c];
+	}
+	return -1;
+}
+
+// find replacement card(s) for a specific value from 1 to 13;
+// first search into the discardPile, then in the drawPile
+function findReplacementCardFor(value) {
+	let replacementCard = findReplacementCardIn(discardPile, value);
+	return replacementCard < 0 ? findReplacementCardIn(drawPile, value) : replacementCard;
+}
+
 // change a knight's shield: move the original shield to the discard pile and put the new card as the shield
 function changeShield(player) {
+	// discarding old shield
+	moveCard(player.shield, discardPile);
 	// first card of the draw pile as the new shield
-	let newCard = drawPile[0];
-	moveCard(player.shield, discardPile, player.shield[0]);
-	moveCard(drawPile, player.shield, newCard);
+	moveCard(drawPile, player.shield);
 }
 
 // charge a knight
 function chargeKnight(player) {
-	let newCard = drawPile[0];
-	moveCard(drawPile, player.charge, newCard);
+	// add the first card of drawPile to the player's charges
+	moveCard(drawPile, player.charge);
 }
 
 // attack a knight
 function attackKnight(attackingPlayer, defendingPlayer) {
-	// compare total attack with defender's shield
-	let totalAttack = deck[drawPile[0]].value;
-	for (let c = 0; c < attackingPlayer.charge.length; c++) {
-		totalAttack += deck[attackingPlayer.charge[c]].value;
-	}
-	if (totalAttack > deck[defendingPlayer.shield[0]].value) {
-		let losingPoints = totalAttack - deck[defendingPlayer.shield[0]].value;
+	// totalAttack is the sum of the first card from the drawPile and potential charges
+	let totalAttack = getCardValue(drawPile[0]);
+	totalAttack += getTotal(defendingPlayer.charge);
 
-		let totalHp = 0;
-		for (let point = 0; point < defendingPlayer.hp; point++) {
-			totalHp += deck[defendingPlayer.hp[point]].value;
-		}
-		
-		let remainingHp = Math.max(0, totalHp - losingPoints);
+	// if totalAttack goes through the shield
+	const shieldValue = getCardValue(defendingPlayer.shield[0]);
+	if (totalAttack > shieldValue) {
+		// losingPoints are remaining points after shield absorption
+		const losingPoints = totalAttack - shieldValue;
+
+		// remainingHp is the theoretical remaining health points
+		const totalHp = getTotal(defendingPlayer.hp);
+		const remainingHp = Math.max(0, totalHp - losingPoints);
+
+		// if remainingHp is zero, that player loses the game, discarding their cards
 		if (remainingHp == 0) then {
-			for (let point = 0; point < defendingPlayer.hp; point++) {
-				moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[point]);
+			// discarding hp cards
+			while (defendingPlayer.hp.length > 0) {
+				moveCard(defendingPlayer.hp, discardPile);
 			}
+			// discarding their shield
+			moveCard(defendingPlayer.shield, discardPile);
+			// remove the player from the game
 			checkPlayerDead(defendingPlayer);
 		} else {
-			// convert the remainingHp into card values [13, x]
-			// check discardPile then drawPile for compatible pairs
-			// get the compatible pair as new hp
+			// try replacing only one card to match the new hp
+		    for (let i = 0; i < defendingPlayer.hp.length; i++) {
+		        const unchangedTotal = getTotal(defendingPlayer.hp) - getCardValue(defendingPlayer.hp[i]);
+		
+		        const replacementValue = remainingHp - unchangedTotal;
+				// if replacementValue can be a card
+		        if (replacementValue >= 1 && replacementValue <= 13) {
+		            const replacementCard = findReplacementCardFor(replacementValue);
+					if (replacementCard > 0) moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[i]);
+					else {
+						// the replacement card isn't in either pile; we need to find at least 2 cards
+					}
+					return replacementCard;
+		        }
+		    }
 		}
+	}
+
+	// defending player looses all their charges on an attack
+	while(defendingPlayer.charge.length > 0) {
+		moveCard(defendingPlayer.charge, discardPile);
 	}
 }
 
@@ -142,22 +199,9 @@ function initGame(numberOfPlayers) {
 	drawPile = shuffle(drawPile);
 	// distribute three cards to all players
 	for(let p = 0; p < players.length; p++) {
-		moveCard(drawPile, p.hp, drawPile[0]);
-		moveCard(drawPile, p.hp, drawPile[0]);
-		moveCard(drawPile, p.shield, drawPile[0]);
-	}
-}
-
-// game loop
-function gameLoop() {
-	initGame();
-
-	// while nobody has won
-	while(!checkPlayerWon()) {
-		// for each player
-		for(let p = 0; p < players.length; p++) {
-			// choose an action
-		}
+		moveCard(drawPile, p.hp);
+		moveCard(drawPile, p.hp);
+		moveCard(drawPile, p.shield);
 	}
 }
 
@@ -301,26 +345,7 @@ var updateClicks=function() {
 // drawing cards on canvas
 let render=function() {
 	if(sprReady) {
-		let offsetX=0;
-		let offsetY=0;
-		for(let i=0; i<3*level; i++) {
-			for(let j=0; j<6; j++) {
-				let index=i*6+j;
-				// card face up
-				if(cards[index].show || cards[index].countdown>0) {
-					// cardX and cardY are coordinates on the sprite
-					let cardY=cards[index].id%9;
-					let cardX=Math.floor(cards[index].id/9);
-					ctx.drawImage(spr, 64+64*cardX, 64*cardY, 64, 64, offsetX, offsetY, 64, 64);
-				}
-				// card face down
-				else ctx.drawImage(spr, cardFaceDown.x, cardFaceDown.y, cardSize.width, cardSize.height, offsetX, offsetY, cardSize.width, cardSize.height);
-			
-				offsetX+=64;
-			}
-			offsetX=0;
-			offsetY+=64;
-		}
+		//ctx.drawImage(spr, 64+64*cardX, 64*cardY, 64, 64, offsetX, offsetY, 64, 64);
 	}
 }
 
@@ -335,5 +360,5 @@ let main = function () {
 let w = window;
 requestAnimationFrame = w.requestAnimationFrame || w.webkitRequestAnimationFrame || w.msRequestAnimationFrame || w.mozRequestAnimationFrame;
 
-//init(level);
+initGame(2);
 main();
