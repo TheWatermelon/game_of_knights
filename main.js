@@ -11,6 +11,20 @@ let sprReady=false;
 spr.onload=function() { sprReady=true; };
 spr.src='sprites.jpg';
 
+// Main menu
+// 2 players box: (92,928) (482,1060)
+// 3 players box: (520,928) (932,1060)
+// 4 players box: (962,928) (1352,1060)
+let mainMenuScreen=new Image();
+let mainMenuScreenReady=false;
+mainMenuScreen.onload=function() { mainMenuScreenReady=true; }
+mainMenuScreen.src='main_menu.png';
+
+let victoryScreen=new Image();
+let victoryScreenReady=false;
+victoryScreen.onload=function() { victoryScreenReady=true; }
+victoryScreen.src='victory_screen.png';
+
 // init cards
 const cardFaceDown = {x:1765, y:26}; // position of the faced down card in the sprites
 const cardSize = {width:117, height:156}; // card size in the sprites
