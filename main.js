@@ -12,9 +12,9 @@ spr.onload=function() { sprReady=true; };
 spr.src='sprites.jpg';
 
 // Main menu
-// 2 players box: (92,928) (482,1060)
-// 3 players box: (520,928) (932,1060)
-// 4 players box: (962,928) (1352,1060)
+// 2 players box: (92,928) (482,1060) -> (51,513) (266,586)
+// 3 players box: (520,928) (932,1060) -> (286,513) (515,586)
+// 4 players box: (962,928) (1352,1060) -> (532,513) (747,586)
 let mainMenuScreen=new Image();
 let mainMenuScreenReady=false;
 mainMenuScreen.onload=function() { mainMenuScreenReady=true; }
@@ -364,7 +364,25 @@ function isPointInBox(point, box) {
 // action on click
 var click=function(event) {
 	const clickPoint = [event.clientX, event.clientY];
-	if (GAMESTATE == gamestates['table view']) {
+  if (GAMESTATE === gamestates['main menu']) {
+    // Main menu
+    // 2 players box: (92,928) (482,1060) -> (51,513) (266,586)
+    // 3 players box: (520,928) (932,1060) -> (286,513) (515,586)
+    // 4 players box: (962,928) (1352,1060) -> (532,513) (747,586)
+    const choosePlayersBoxes = [
+      [51,513,215,73],
+      [286,513,229,73],
+      [532,513,215,73]
+    ];
+
+    for (let b = 0, b < choosePlayersBoxes.length; b++) {
+      if (isPointInBox(clickPoint, choosePlayersBoxes[b])) {
+        initGame(b+2);
+        GAMESTATE = gamestates['table view'];
+        break;
+      }
+    }
+  } else if (GAMESTATE == gamestates['table view']) {
 		const attackBox = [attackPos.x, attackPos.y, attackPos.x+attackSprite.w/2, attackPos.y+attackSprite.h/2];
 		const changeShieldBox = [shieldPos.x, shieldPos.y, shieldPos.x+shieldSprite.w/2, shieldPos.y+shieldSprite.h/2];
 		const chargeBox = [chargePos.x, chargePos.y, chargePos.x+chargeSprite.w/2, chargePos.y+chargeSprite.h/2];
@@ -550,102 +568,109 @@ function drawImage(ctx, image, srcX, srcY, srcW, srcH, destX, destY, destW, dest
 
 // drawing cards on canvas
 let render=function() {
-	if(sprReady) {
-		ctx.fillStyle = "white";
-		ctx.fillRect(0, 0, 800, 600);
-		ctx.fillStyle = "black";
-		const cardSizeOnScreen = {width:cardSize.width/2, height:cardSize.height/2};
-		// drawPile
-		const drawPilePos = {x:410, y:250 - cardSizeOnScreen.height/2};
-		ctx.drawImage(spr, cardFaceDown.x, cardFaceDown.y, cardSize.width, cardSize.height, drawPilePos.x, drawPilePos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
-		// discardPile
-		if (discardPile.length > 0) {
-			const discardPilePos = {x:400 - cardSizeOnScreen.width, y:250 - cardSizeOnScreen.height/2};
-			const lastDiscardPileCardSprite = getSpriteCoordFor(discardPile[discardPile.length-1]);
-			ctx.drawImage(spr, lastDiscardPileCardSprite.x, lastDiscardPileCardSprite.y, cardSize.width, cardSize.height, discardPilePos.x, discardPilePos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
-		}
-		
-		// draw actions or choose player
-		if (GAMESTATE === gamestates['table view']) {
-			// draw attack
-			ctx.drawImage(spr, attackSprite.x, attackSprite.y, attackSprite.w, attackSprite.h, attackPos.x, attackPos.y, attackSprite.w/2, attackSprite.h/2);
-			// draw shield
-			ctx.drawImage(spr, shieldSprite.x, shieldSprite.y, shieldSprite.w, shieldSprite.h, shieldPos.x, shieldPos.y, shieldSprite.w/2, shieldSprite.h/2);
-			// draw charge
-			ctx.drawImage(spr, chargeSprite.x, chargeSprite.y, chargeSprite.w, chargeSprite.h, chargePos.x, chargePos.y, chargeSprite.w/2, chargeSprite.h/2);
-			// text
-			ctx.fillText("Choose an action", 330, 330);
-		} else if (GAMESTATE >= gamestates['action:attack'] && GAMESTATE <= gamestates['action:charge']) {
-			if (showDrawPileTopCard) {
-				ctx.fillText("Showing top card", 328, 330);
-				// draw drawPile top card
-				const drawPileTopCardPos = {x:400-cardSizeOnScreen.width/2, y:300-cardSizeOnScreen.height};
-				const drawPileTopCardSprite = getSpriteCoordFor(drawPile[0]);
-				ctx.drawImage(spr, drawPileTopCardSprite.x, drawPileTopCardSprite.y, cardSize.width, cardSize.height, drawPileTopCardPos.x, drawPileTopCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
-			} else {
-				ctx.fillText("Choose a player", 330, 330);
+  if(GAMESTATE === gamestates['main menu']) {
+    if(mainMenuScreenReady) {
+      console.log("menu screen");
+      ctx.drawImage(mainMenuScreen, 0, 0);
+    }
+  } else {
+    if(sprReady) {
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, 800, 600);
+      ctx.fillStyle = "black";
+      const cardSizeOnScreen = {width:cardSize.width/2, height:cardSize.height/2};
+      // drawPile
+      const drawPilePos = {x:410, y:250 - cardSizeOnScreen.height/2};
+      ctx.drawImage(spr, cardFaceDown.x, cardFaceDown.y, cardSize.width, cardSize.height, drawPilePos.x, drawPilePos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
+      // discardPile
+      if (discardPile.length > 0) {
+        const discardPilePos = {x:400 - cardSizeOnScreen.width, y:250 - cardSizeOnScreen.height/2};
+        const lastDiscardPileCardSprite = getSpriteCoordFor(discardPile[discardPile.length-1]);
+        ctx.drawImage(spr, lastDiscardPileCardSprite.x, lastDiscardPileCardSprite.y, cardSize.width, cardSize.height, discardPilePos.x, discardPilePos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
+      }
+      
+      // draw actions or choose player
+      if (GAMESTATE === gamestates['table view']) {
+        // draw attack
+        ctx.drawImage(spr, attackSprite.x, attackSprite.y, attackSprite.w, attackSprite.h, attackPos.x, attackPos.y, attackSprite.w/2, attackSprite.h/2);
+        // draw shield
+        ctx.drawImage(spr, shieldSprite.x, shieldSprite.y, shieldSprite.w, shieldSprite.h, shieldPos.x, shieldPos.y, shieldSprite.w/2, shieldSprite.h/2);
+        // draw charge
+        ctx.drawImage(spr, chargeSprite.x, chargeSprite.y, chargeSprite.w, chargeSprite.h, chargePos.x, chargePos.y, chargeSprite.w/2, chargeSprite.h/2);
+        // text
+        ctx.fillText("Choose an action", 330, 330);
+      } else if (GAMESTATE >= gamestates['action:attack'] && GAMESTATE <= gamestates['action:charge']) {
+        if (showDrawPileTopCard) {
+          ctx.fillText("Showing top card", 328, 330);
+          // draw drawPile top card
+          const drawPileTopCardPos = {x:400-cardSizeOnScreen.width/2, y:300-cardSizeOnScreen.height};
+          const drawPileTopCardSprite = getSpriteCoordFor(drawPile[0]);
+          ctx.drawImage(spr, drawPileTopCardSprite.x, drawPileTopCardSprite.y, cardSize.width, cardSize.height, drawPileTopCardPos.x, drawPileTopCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
+        } else {
+          ctx.fillText("Choose a player", 330, 330);
 
-				if (GAMESTATE === gamestates['action:attack']) {
-					// draw attack
-					ctx.drawImage(spr, attackSprite.x, attackSprite.y, attackSprite.w, attackSprite.h, attackPos.x, attackPos.y, attackSprite.w/2, attackSprite.h/2);
-				} else if (GAMESTATE === gamestates['action:shield']) {
-					// draw shield
-					ctx.drawImage(spr, shieldSprite.x, shieldSprite.y, shieldSprite.w, shieldSprite.h, shieldPos.x, shieldPos.y, shieldSprite.w/2, shieldSprite.h/2);
-				} else if (GAMESTATE === gamestates['action:charge']) {
-					// draw charge
-					ctx.drawImage(spr, chargeSprite.x, chargeSprite.y, chargeSprite.w, chargeSprite.h, chargePos.x, chargePos.y, chargeSprite.w/2, chargeSprite.h/2);
-				}
-			}
-		}
-		
-		// draw players
-		for (let p = 0; p < players.length; p++) {
-			let offset = {x:0, y:0};
-			offset.x = (p < 2) ? 50 : 550;
-			offset.y = (p % 2 === 0) ? 400 : 10;
+          if (GAMESTATE === gamestates['action:attack']) {
+            // draw attack
+            ctx.drawImage(spr, attackSprite.x, attackSprite.y, attackSprite.w, attackSprite.h, attackPos.x, attackPos.y, attackSprite.w/2, attackSprite.h/2);
+          } else if (GAMESTATE === gamestates['action:shield']) {
+            // draw shield
+            ctx.drawImage(spr, shieldSprite.x, shieldSprite.y, shieldSprite.w, shieldSprite.h, shieldPos.x, shieldPos.y, shieldSprite.w/2, shieldSprite.h/2);
+          } else if (GAMESTATE === gamestates['action:charge']) {
+            // draw charge
+            ctx.drawImage(spr, chargeSprite.x, chargeSprite.y, chargeSprite.w, chargeSprite.h, chargePos.x, chargePos.y, chargeSprite.w/2, chargeSprite.h/2);
+          }
+        }
+      }
+      
+      // draw players
+      for (let p = 0; p < players.length; p++) {
+        let offset = {x:0, y:0};
+        offset.x = (p < 2) ? 50 : 550;
+        offset.y = (p % 2 === 0) ? 400 : 10;
 
-			if(p === activePlayerIndex) {
-				ctx.fillStyle = playersColors[p];
-				ctx.fillRect(offset.x-5,offset.y+90,20,20);
-				ctx.fillStyle = "white";
-			}
+        if(p === activePlayerIndex) {
+          ctx.fillStyle = playersColors[p];
+          ctx.fillRect(offset.x-5,offset.y+90,20,20);
+          ctx.fillStyle = "white";
+        }
 
-			let hpCardsPos = {x:offset.x+40, y:0};
-			hpCardsPos.y = (p % 2 === 0) ? offset.y + (200 - 10 - 78) : 10;
+        let hpCardsPos = {x:offset.x+40, y:0};
+        hpCardsPos.y = (p % 2 === 0) ? offset.y + (200 - 10 - 78) : 10;
 
-			for (let hpCard = 0; hpCard < players[p].hp.length; hpCard++) {
-				const hpCardCoord = getSpriteCoordFor(players[p].hp[hpCard]);
-				ctx.drawImage(spr, hpCardCoord.x, hpCardCoord.y, cardSize.width, cardSize.height, hpCardsPos.x + hpCard*71.5, hpCardsPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
-			}
+        for (let hpCard = 0; hpCard < players[p].hp.length; hpCard++) {
+          const hpCardCoord = getSpriteCoordFor(players[p].hp[hpCard]);
+          ctx.drawImage(spr, hpCardCoord.x, hpCardCoord.y, cardSize.width, cardSize.height, hpCardsPos.x + hpCard*71.5, hpCardsPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
+        }
 
-			// draw shield
-			let shieldCardPos = {x:offset.x + 40 + 65 - cardSizeOnScreen.width/2, y:0};
-			shieldCardPos.y = (p % 2 === 0) ? offset.y + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
-			const shieldCardCoord = getSpriteCoordFor(players[p].shield[0]);
-			drawImage(ctx, spr, shieldCardCoord.x, shieldCardCoord.y, cardSize.width, cardSize.height, shieldCardPos.x, shieldCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height, 90);
-			//ctx.drawImage(spr, shieldCardCoord.x, shieldCardCoord.y, cardSize.width, cardSize.height, shieldCardPos.x, shieldCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
-			
-			// draw charge
-			if (players[p].charge.length > 0) {
-				let chargeCardPos = {x:offset.x + 40 + 65 + 65 + 10, y:0};
-				chargeCardPos.y = (p % 2 == 0) ? offset.y + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
-				if (GAMESTATE === gamestates['action:attack'] && showDrawPileTopCard && p === activePlayerIndex) {
-					for (let c = 0; c < players[p].charge.length; c++) {
-						let chargeSpr = getSpriteCoordFor(players[p].charge[c]);
-						ctx.drawImage(spr, chargeSpr.x, chargeSpr.y, cardSize.width, cardSize.height, chargeCardPos.x, chargeCardPos.y + c*20, cardSizeOnScreen.width, cardSizeOnScreen.height);
-					}
-				} else {
-					ctx.drawImage(spr, cardFaceDown.x, cardFaceDown.y, cardSize.width, cardSize.height, chargeCardPos.x, chargeCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
-					ctx.fillStyle = "goldenrod";
-					ctx.fillRect(chargeCardPos.x-2, chargeCardPos.y-2, 29, 29);
-					ctx.fillStyle = "white";
-					ctx.fillRect(chargeCardPos.x, chargeCardPos.y, 25, 25);
-					ctx.fillStyle = "black";
-					ctx.fillText(players[p].charge.length, chargeCardPos.x+7, chargeCardPos.y+20);
-				}
-			}
-		}
-	}
+        // draw shield
+        let shieldCardPos = {x:offset.x + 40 + 65 - cardSizeOnScreen.width/2, y:0};
+        shieldCardPos.y = (p % 2 === 0) ? offset.y + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
+        const shieldCardCoord = getSpriteCoordFor(players[p].shield[0]);
+        drawImage(ctx, spr, shieldCardCoord.x, shieldCardCoord.y, cardSize.width, cardSize.height, shieldCardPos.x, shieldCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height, 90);
+        //ctx.drawImage(spr, shieldCardCoord.x, shieldCardCoord.y, cardSize.width, cardSize.height, shieldCardPos.x, shieldCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
+        
+        // draw charge
+        if (players[p].charge.length > 0) {
+          let chargeCardPos = {x:offset.x + 40 + 65 + 65 + 10, y:0};
+          chargeCardPos.y = (p % 2 == 0) ? offset.y + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
+          if (GAMESTATE === gamestates['action:attack'] && showDrawPileTopCard && p === activePlayerIndex) {
+            for (let c = 0; c < players[p].charge.length; c++) {
+              let chargeSpr = getSpriteCoordFor(players[p].charge[c]);
+              ctx.drawImage(spr, chargeSpr.x, chargeSpr.y, cardSize.width, cardSize.height, chargeCardPos.x, chargeCardPos.y + c*20, cardSizeOnScreen.width, cardSizeOnScreen.height);
+            }
+          } else {
+            ctx.drawImage(spr, cardFaceDown.x, cardFaceDown.y, cardSize.width, cardSize.height, chargeCardPos.x, chargeCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
+            ctx.fillStyle = "goldenrod";
+            ctx.fillRect(chargeCardPos.x-2, chargeCardPos.y-2, 29, 29);
+            ctx.fillStyle = "white";
+            ctx.fillRect(chargeCardPos.x, chargeCardPos.y, 25, 25);
+            ctx.fillStyle = "black";
+            ctx.fillText(players[p].charge.length, chargeCardPos.x+7, chargeCardPos.y+20);
+          }
+        }
+      }
+    }
+  }
 }
 
 // The main game loop
