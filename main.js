@@ -5,6 +5,9 @@ c.height = 600;
 let ctx=c.getContext('2d');
 ctx.font = "20px serif";
 
+// init log
+let logEntries = [];
+
 // load sprites
 let spr=new Image();
 let sprReady=false;
@@ -12,13 +15,18 @@ spr.onload=function() { sprReady=true; };
 spr.src='sprites.jpg';
 
 // Main menu
-// 2 players box: (92,928) (482,1060) -> (51,513) (266,586)
-// 3 players box: (520,928) (932,1060) -> (286,513) (515,586)
-// 4 players box: (962,928) (1352,1060) -> (532,513) (747,586)
 let mainMenuScreen=new Image();
 let mainMenuScreenReady=false;
 mainMenuScreen.onload=function() { mainMenuScreenReady=true; }
 mainMenuScreen.src='main_menu.png';
+// 2 players box: (92,928) (482,1060) -> (51,513) (266,586)
+// 3 players box: (520,928) (932,1060) -> (286,513) (515,586)
+// 4 players box: (962,928) (1352,1060) -> (532,513) (747,586)
+const choosePlayersBoxes = [
+	[51,513,266,586],
+	[286,513,515,586],
+	[532,513,747,586]
+];
 
 let victoryScreen=new Image();
 let victoryScreenReady=false;
@@ -28,17 +36,21 @@ victoryScreen.src='victory_screen.png';
 // init cards
 const cardFaceDown = {x:1765, y:26}; // position of the faced down card in the sprites
 const cardSize = {width:117, height:156}; // card size in the sprites
+const cardSizeOnScreen = {width:cardSize.width/2, height:cardSize.height/2}; // card size on canvas
+const drawPilePos = {x:410, y:300 - cardSizeOnScreen.height/2}; // drawPile position on canvas
+const drawEffetPos = {x:drawPilePos.x+5, y:drawPilePos.y-5}; // "draw effect" with a card on top of the draw pile
+const discardPilePos = {x:400 - cardSizeOnScreen.width, y:300 - cardSizeOnScreen.height/2}; // discardPile position on canvas
 const deck = createDeck(); // creates a reference for the cards (id, value, color)
 let drawPile = Array.from({ length: 52 }, (_, i) => i + 1);
 let discardPile = [];
 
 // init actions
 const attackSprite = {x:1765, y:208, w:115, h:116};
-const attackPos = {x:300, y:350};
+const attackPos = {x:485, y:210};
 const shieldSprite = {x:1770, y:378, w:108, h:120};
-const shieldPos = {x:375, y:350};
+const shieldPos = {x:505, y:268};
 const chargeSprite = {x:1786, y:542, w:78, h:128};
-const chargePos = {x: 450, y:350};
+const chargePos = {x: 490, y:328};
 
 // init players
 let players = [];
@@ -49,6 +61,7 @@ let activePlayerIndex = 0;
 const gamestates = {
 	"main menu":0,
 	"table view":1,
+	"action:choose":20,
 	"action:attack":21,
 	"action:shield":22,
 	"action:charge":23,
@@ -100,7 +113,9 @@ function Player(playerName = "") {
 	this.hp = [];
 	this.shield = [];
 	this.charge = [];
+	this.box = [];
 }
+
 // change Player toString
 Player.prototype.toString = function playerToString() {
 	return "{" +
@@ -110,6 +125,22 @@ Player.prototype.toString = function playerToString() {
 		"charges: " + this.charge.length +
 		"}";
 };
+
+function LogEntry(msg, type) {
+	this.msg = msg;
+	this.type = type; 
+}
+
+function addLogEntry(msg, type="INFO") {
+	const newLog = new LogEntry(msg, type);
+	let logDiv = document.getElementById("log");
+	let entryElm = document.createElement("p");
+	entryElm.classList.add(type);
+
+	entryElm.append(newLog.msg);
+
+	logDiv.insertBefore(entryElm, logDiv.firstChild);
+}
 
 // refreshDrawPile : if drawPile is empty; shuffle the discardPile into a new drawPile
 function refreshDrawPile() {
@@ -197,12 +228,16 @@ function changeShield(player) {
 	moveCard(player.shield, discardPile);
 	// first card of the draw pile as the new shield
 	moveCard(drawPile, player.shield);
+
+	addLogEntry("Changing " + player.name + "'s shield for " + getCardName(player.shield[0]), "SHIELD");
 }
 
 // charge a knight
 function chargeKnight(player) {
 	// add the first card of drawPile to the player's charges
 	moveCard(drawPile, player.charge);
+
+	addLogEntry("Charging " + player.name, "CHARGE");
 }
 
 // attack a knight
@@ -214,7 +249,8 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 	// if totalAttack goes through the shield
 	const shieldValue = getCardValue(defendingPlayer.shield[0]);
 
-	console.log("trying to attack " + shieldValue + " with " + totalAttack);
+	//console.log("trying to attack " + shieldValue + " with " + totalAttack);
+	addLogEntry("Trying to attack " + defendingPlayer.name + " with a total attack value of " + totalAttack, "ATTACK");
 
 	if (totalAttack > shieldValue) {
 		// losingPoints are remaining points after shield absorption
@@ -231,7 +267,6 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 				moveCard(defendingPlayer.hp, discardPile);
 			}
 			checkPlayerDead(defendingPlayer);
-			checkPlayerWon();
 		} else {
 			// try replacing only one card to match the new hp
 			let replacementValue = 0;
@@ -253,7 +288,7 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 				}
 				replacementValue = remainingHp;
 			}
-			console.log("totalHp: " + totalHp + " losingPoints: " + losingPoints + " replacement value: " + replacementValue);
+			//console.log("totalHp: " + totalHp + " losingPoints: " + losingPoints + " replacement value: " + replacementValue);
 
 			// find replacement card(s)
 			let replacementCards = [];
@@ -280,9 +315,11 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 			for (let c = 0; c < replacementCards.length; c++) {
 				moveCard(replacementCards[c][0], defendingPlayer.hp, replacementCards[c][1]);
 			}
+
+			addLogEntry(defendingPlayer.name + " has lost " + losingPoints + " points", "ATTACK");
 		}
 	} else {
-		console.log ("nothing happens...");
+		addLogEntry(defendingPlayer.name + " stood still !", "ATTACK");
 	}
 
 	// discarding the attack card
@@ -310,6 +347,7 @@ function emptyPlayer(player) {
 // check if a player has lost
 function checkPlayerDead(player) {
 	if(getTotal(player.hp) == 0) {
+		addLogEntry(player.name + " has lost ! All their cards are discarded.");
 		emptyPlayer(player);
 		const indexToRemove = players.indexOf(player);
 		// if the dead player would have been next, jump to the next one
@@ -325,38 +363,47 @@ function checkPlayerDead(player) {
 
 // check if a player has won
 function checkPlayerWon() {
-	if (players.length == 1) return true;
+	if (players.length === 1) return true;
 	else return false;
 }
 
 // switch to the next player
 function nextPLayer() {
 	activePlayerIndex = (activePlayerIndex + 1) % players.length;
+	addLogEntry("Active Player: "+players[activePlayerIndex].name, "INFO");
 }
 
 // init game
 function initGame(numberOfPlayers) {
-	// init players
-	for(let p = 1; p <= numberOfPlayers; p++) {
-		players.push(new Player("Player "+p));
-	}
-	activePlayerIndex = 0;
 	// shuffle cards
 	drawPile = shuffle(drawPile);
-	//console.log(drawPile);
-	// distribute three cards to all players
-	for(let p = 0; p < players.length; p++) {
-		moveCard(drawPile, players[p].hp);
-		moveCard(drawPile, players[p].hp);
-		moveCard(drawPile, players[p].shield);
+	// init players
+	activePlayerIndex = 0;
+	for(let p = 0; p < numberOfPlayers; p++) {
+		let newP = new Player("Player "+ (p+1));
+
+		let offset = {x:0, y:0};
+		offset.x = (p < 2) ? 50 : 550;
+		offset.y = (p % 2 === 0) ? 400 : 0;
+		const pBox = [offset.x, offset.y, offset.x+250, offset.y+200];
+		newP.box = pBox;
+
+		// distribute three cards to this player
+		moveCard(drawPile, newP.hp);
+		moveCard(drawPile, newP.hp);
+		moveCard(drawPile, newP.shield);
+
+		players.push(newP);
 	}
+
+	addLogEntry("Starting a game with " +numberOfPlayers+" players !", "INFO");
+	addLogEntry("Active Player: "+players[activePlayerIndex].name, "INFO");
 }
 
 // check if a point (x,y) is in a box (x1, y1, x2, y2)
 function isPointInBox(point, box) {
 	// point is [x, y];
 	// box is [x1, y1, x2, y2];
-	//console.log("checking "+point+" into "+box);
 	if(point[0] >= box[0] && point[0] <= box[2] && point[1] >= box[1] && point[1] <= box[3]) return true;
 	else return false;
 }
@@ -364,17 +411,8 @@ function isPointInBox(point, box) {
 // action on click
 var click=function(event) {
 	const clickPoint = [event.clientX, event.clientY];
-	if (GAMESTATE === gamestates['main menu']) {
-		// Main menu
-		// 2 players box: (92,928) (482,1060) -> (51,513) (266,586)
-		// 3 players box: (520,928) (932,1060) -> (286,513) (515,586)
-		// 4 players box: (962,928) (1352,1060) -> (532,513) (747,586)
-		const choosePlayersBoxes = [
-			[51,513,266,586],
-			[286,513,515,586],
-			[532,513,747,586]
-		];
 
+	if (GAMESTATE === gamestates['main menu']) {
 		for (let b = 0; b < choosePlayersBoxes.length; b++) {
 			if (isPointInBox(clickPoint, choosePlayersBoxes[b])) {
 				initGame(b+2);
@@ -382,7 +420,11 @@ var click=function(event) {
 				break;
 			}
 		}
-	} else if (GAMESTATE == gamestates['table view']) {
+	} else if (GAMESTATE === gamestates['game over']) {
+		GAMESTATE = gamestates['main menu'];
+	} else if (GAMESTATE === gamestates['table view']) {
+		if (isPointInBox(clickPoint, [drawPilePos.x, drawPilePos.y, drawPilePos.x + cardSizeOnScreen.width, drawPilePos.y + cardSizeOnScreen.height])) GAMESTATE = gamestates['action:choose'];
+	} else if (GAMESTATE === gamestates['action:choose']) {
 		const attackBox = [attackPos.x, attackPos.y, attackPos.x+attackSprite.w/2, attackPos.y+attackSprite.h/2];
 		const changeShieldBox = [shieldPos.x, shieldPos.y, shieldPos.x+shieldSprite.w/2, shieldPos.y+shieldSprite.h/2];
 		const chargeBox = [chargePos.x, chargePos.y, chargePos.x+chargeSprite.w/2, chargePos.y+chargeSprite.h/2];
@@ -390,7 +432,6 @@ var click=function(event) {
 		if (isPointInBox(clickPoint, attackBox)) { GAMESTATE = gamestates['action:attack']; }
 		else if (isPointInBox(clickPoint, changeShieldBox)) { GAMESTATE = gamestates['action:shield']; }
 		else if (isPointInBox(clickPoint, chargeBox)) { GAMESTATE = gamestates['action:charge']; }
-
 	} else if (GAMESTATE === gamestates['action:attack'] || 
 				GAMESTATE === gamestates['action:shield'] ||
 				GAMESTATE === gamestates['action:charge']) {
@@ -399,17 +440,20 @@ var click=function(event) {
 		} else {
 			showDrawPileTopCard = false;
 			for (let p=0; p < players.length; p++) {
-				let offset = {x:0, y:0};
-				offset.x = (p < 2) ? 50 : 550;
-				offset.y = (p % 2 === 0) ? 400 : 10;
-				const pBox = [offset.x, offset.y, offset.x+250, offset.y+200];
+				const pBox = players[p].box;
 
 				if (isPointInBox(clickPoint, pBox)) {
 					if (GAMESTATE === gamestates['action:attack']) { attackKnight(players[activePlayerIndex], players[p]); }
 					else if (GAMESTATE === gamestates['action:shield']) { changeShield(players[p]); }
 					else if (GAMESTATE === gamestates['action:charge']) { chargeKnight(players[p]); }
-					nextPLayer();
-					GAMESTATE = gamestates['table view'];
+
+					if (checkPlayerWon()) { 
+						addLogEntry(players[activePlayerIndex].name + " has won the game !");
+						GAMESTATE = gamestates['game over']; 
+					} else {
+						nextPLayer();
+						GAMESTATE = gamestates['table view'];
+					}
 				}
 			}
 		}
@@ -555,6 +599,47 @@ var updateClicks=function() {
 }
 */
 
+// draw player box
+function drawPlayerBox(ctx, player) {
+	ctx.fillStyle = playersColors[players.indexOf(player)];
+	// bigger rectangle
+	ctx.fillRect(player.box[0], player.box[1], player.box[2], player.box[3]);
+	ctx.fillStyle = "white";
+	// inner rectangle
+	ctx.fillRect(player.box[0]+4, player.box[1]+4, player.box[2]-8, player.box[3]-player.box[1]-8);
+	// name line
+	if (players.indexOf(player) % 2 === 0) ctx.fillRect(player.box[0]+10, player.box[1], player.name.length*10, 4);
+	else ctx.fillRect(player.box[0]+10, player.box[3]-4, player.name.length*10, 4);
+	ctx.fillStyle = "black";
+	// player name
+	let playerNamePos = {x:player.box[0]+15, y:player.box[1]+8};
+	if (players.indexOf(player) % 2 !== 0) {
+		playerNamePos.y += 195;
+	}
+	ctx.fillText(player.name, playerNamePos.x, playerNamePos.y);
+}
+
+// draw attack action on canvas
+function drawAttackActionOnCanvas() {
+	ctx.drawImage(spr, attackSprite.x, attackSprite.y, attackSprite.w, attackSprite.h, attackPos.x, attackPos.y, Math.round(attackSprite.w*0.4), Math.round(attackSprite.h*0.4));
+	ctx.fillStyle = "black";
+	ctx.fillText("Attack a knight", attackPos.x + 50, attackPos.y + 30);
+}
+
+// draw shield action on canvas
+function drawShieldActionOnCanvas() {
+	ctx.drawImage(spr, shieldSprite.x, shieldSprite.y, shieldSprite.w, shieldSprite.h, shieldPos.x, shieldPos.y, Math.round(shieldSprite.w*0.4), Math.round(shieldSprite.h*0.4));
+	ctx.fillStyle = "black";
+	ctx.fillText("Change a knight's shield", shieldPos.x + 50, shieldPos.y + 30);
+}
+
+// draw charge action on canvas
+function drawChargeActionOnCanvas() {
+	ctx.drawImage(spr, chargeSprite.x, chargeSprite.y, chargeSprite.w, chargeSprite.h, chargePos.x, chargePos.y, Math.round(chargeSprite.w*0.4), Math.round(chargeSprite.h*0.4));
+	ctx.fillStyle = "black";
+	ctx.fillText("Charge a knight", chargePos.x + 50, chargePos.y + 30);
+}
+
 // can draw rotated images
 function drawImage(ctx, image, srcX, srcY, srcW, srcH, destX, destY, destW, destH, degrees){
 	ctx.save();
@@ -565,76 +650,72 @@ function drawImage(ctx, image, srcX, srcY, srcW, srcH, destX, destY, destW, dest
 	ctx.restore();
 }
 
-// drawing cards on canvas
+// draw a card from sprites (src) to canvas (dest); coords are {x, y}
+function drawCard(srcCoord, destCoord) {
+	ctx.drawImage(spr, srcCoord.x, srcCoord.y, cardSize.width, cardSize.height, destCoord.x, destCoord.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
+}
+
+// render game on canvas
 let render=function() {
-	if(GAMESTATE === gamestates['main menu']) {
+	if (GAMESTATE === gamestates['main menu']) {
 		if(mainMenuScreenReady) {
-		console.log("menu screen");
-		ctx.drawImage(mainMenuScreen, 0, 0, mainMenuScreen.width, mainMenuScreen.height, 0, 0, 800, 600);
+			ctx.drawImage(mainMenuScreen, 0, 0, mainMenuScreen.width, mainMenuScreen.height, 0, 0, 800, 600);
+		}
+	} else if (GAMESTATE === gamestates['game over']) {
+		if(victoryScreenReady) {
+			ctx.drawImage(victoryScreen, 0, 0, victoryScreen.width, victoryScreen.height, 0, 0, 800, 600);
 		}
 	} else {
 		if(sprReady) {
 			ctx.fillStyle = "white";
 			ctx.fillRect(0, 0, 800, 600);
 			ctx.fillStyle = "black";
-			const cardSizeOnScreen = {width:cardSize.width/2, height:cardSize.height/2};
 			// drawPile
-			const drawPilePos = {x:410, y:250 - cardSizeOnScreen.height/2};
-			ctx.drawImage(spr, cardFaceDown.x, cardFaceDown.y, cardSize.width, cardSize.height, drawPilePos.x, drawPilePos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
+			drawCard(cardFaceDown, drawPilePos);
 			// discardPile
 			if (discardPile.length > 0) {
-				const discardPilePos = {x:400 - cardSizeOnScreen.width, y:250 - cardSizeOnScreen.height/2};
 				const lastDiscardPileCardSprite = getSpriteCoordFor(discardPile[discardPile.length-1]);
-				ctx.drawImage(spr, lastDiscardPileCardSprite.x, lastDiscardPileCardSprite.y, cardSize.width, cardSize.height, discardPilePos.x, discardPilePos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
+				drawCard(lastDiscardPileCardSprite, discardPilePos);
 			}
 			
 			// draw actions or choose player
-			if (GAMESTATE === gamestates['table view']) {
-				// draw attack
-				ctx.drawImage(spr, attackSprite.x, attackSprite.y, attackSprite.w, attackSprite.h, attackPos.x, attackPos.y, attackSprite.w/2, attackSprite.h/2);
-				// draw shield
-				ctx.drawImage(spr, shieldSprite.x, shieldSprite.y, shieldSprite.w, shieldSprite.h, shieldPos.x, shieldPos.y, shieldSprite.w/2, shieldSprite.h/2);
-				// draw charge
-				ctx.drawImage(spr, chargeSprite.x, chargeSprite.y, chargeSprite.w, chargeSprite.h, chargePos.x, chargePos.y, chargeSprite.w/2, chargeSprite.h/2);
-				// text
-				ctx.fillText("Choose an action", 330, 330);
+			if (GAMESTATE === gamestates['action:choose']) {
+				// draw a face down card on top of the draw pile to mimic a "draw effect"
+				drawCard(cardFaceDown, drawEffetPos);
+				// draw actions
+				drawAttackActionOnCanvas();
+				drawShieldActionOnCanvas();
+				drawChargeActionOnCanvas();
 			} else if (GAMESTATE >= gamestates['action:attack'] && GAMESTATE <= gamestates['action:charge']) {
 				if (showDrawPileTopCard) {
-					ctx.fillText("Showing top card", 328, 330);
 					// draw drawPile top card
-					const drawPileTopCardPos = {x:400-cardSizeOnScreen.width/2, y:300-cardSizeOnScreen.height};
 					const drawPileTopCardSprite = getSpriteCoordFor(drawPile[0]);
-					ctx.drawImage(spr, drawPileTopCardSprite.x, drawPileTopCardSprite.y, cardSize.width, cardSize.height, drawPileTopCardPos.x, drawPileTopCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
+					drawCard(drawPileTopCardSprite, drawEffetPos);
 				} else {
-					ctx.fillText("Choose a player", 330, 330);
+					// draw a face down card on top of the draw pile to mimic a "draw effect"
+					drawCard(cardFaceDown, drawEffetPos);
 
 					if (GAMESTATE === gamestates['action:attack']) {
-						// draw attack
-						ctx.drawImage(spr, attackSprite.x, attackSprite.y, attackSprite.w, attackSprite.h, attackPos.x, attackPos.y, attackSprite.w/2, attackSprite.h/2);
+						drawAttackActionOnCanvas();
 					} else if (GAMESTATE === gamestates['action:shield']) {
-						// draw shield
-						ctx.drawImage(spr, shieldSprite.x, shieldSprite.y, shieldSprite.w, shieldSprite.h, shieldPos.x, shieldPos.y, shieldSprite.w/2, shieldSprite.h/2);
+						drawShieldActionOnCanvas();
 					} else if (GAMESTATE === gamestates['action:charge']) {
-						// draw charge
-						ctx.drawImage(spr, chargeSprite.x, chargeSprite.y, chargeSprite.w, chargeSprite.h, chargePos.x, chargePos.y, chargeSprite.w/2, chargeSprite.h/2);
+						drawChargeActionOnCanvas();
 					}
 				}
 			}
 			
 			// draw players
 			for (let p = 0; p < players.length; p++) {
-				let offset = {x:0, y:0};
-				offset.x = (p < 2) ? 50 : 550;
-				offset.y = (p % 2 === 0) ? 400 : 10;
-
-				if(p === activePlayerIndex) {
-					ctx.fillStyle = playersColors[p];
-					ctx.fillRect(offset.x-5,offset.y+90,20,20);
-					ctx.fillStyle = "white";
+				if(p === activePlayerIndex || (GAMESTATE >= gamestates['action:attack'] && GAMESTATE <= gamestates['action:charge'] && !showDrawPileTopCard)) {
+					//ctx.fillStyle = playersColors[p];
+					//ctx.fillRect(players[p].box[0]-5,players[p].box[1]+90,20,20);
+					//ctx.fillStyle = "white";
+					drawPlayerBox(ctx, players[p]);
 				}
 
-				let hpCardsPos = {x:offset.x+40, y:0};
-				hpCardsPos.y = (p % 2 === 0) ? offset.y + (200 - 10 - 78) : 10;
+				let hpCardsPos = {x:players[p].box[0]+40, y:0};
+				hpCardsPos.y = (p % 2 === 0) ? players[p].box[1] + (200 - 10 - 78) : 10;
 
 				for (let hpCard = 0; hpCard < players[p].hp.length; hpCard++) {
 					const hpCardCoord = getSpriteCoordFor(players[p].hp[hpCard]);
@@ -642,16 +723,16 @@ let render=function() {
 				}
 
 				// draw shield
-				let shieldCardPos = {x:offset.x + 40 + 65 - cardSizeOnScreen.width/2, y:0};
-				shieldCardPos.y = (p % 2 === 0) ? offset.y + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
+				let shieldCardPos = {x:players[p].box[0] + 40 + 65 - cardSizeOnScreen.width/2, y:0};
+				shieldCardPos.y = (p % 2 === 0) ? players[p].box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
 				const shieldCardCoord = getSpriteCoordFor(players[p].shield[0]);
 				drawImage(ctx, spr, shieldCardCoord.x, shieldCardCoord.y, cardSize.width, cardSize.height, shieldCardPos.x, shieldCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height, 90);
 				//ctx.drawImage(spr, shieldCardCoord.x, shieldCardCoord.y, cardSize.width, cardSize.height, shieldCardPos.x, shieldCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
 					
 				// draw charge
 				if (players[p].charge.length > 0) {
-					let chargeCardPos = {x:offset.x + 40 + 65 + 65 + 10, y:0};
-					chargeCardPos.y = (p % 2 == 0) ? offset.y + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
+					let chargeCardPos = {x:players[p].box[0] + 40 + 65 + 65 + 10, y:0};
+					chargeCardPos.y = (p % 2 == 0) ? players[p].box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
 					if (GAMESTATE === gamestates['action:attack'] && showDrawPileTopCard && p === activePlayerIndex) {
 						for (let c = 0; c < players[p].charge.length; c++) {
 							let chargeSpr = getSpriteCoordFor(players[p].charge[c]);

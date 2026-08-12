@@ -1,6 +1,6 @@
 * {
 	font-family: "serial";
-	font-size: 24px;
+	font-size: 20px;
 	color: black;
 }
 
@@ -15,7 +15,7 @@ canvas {
 }
 
 a {
-	text-decoration: none;
+	/*text-decoration: none;*/
 }
 
 a:hover {
@@ -23,11 +23,24 @@ a:hover {
 }
 
 p {
-	text-align: center;
-	height: 64px;
-	margin: 0;
+	text-align: left;
+	height: auto;
+	margin: 5px 0px 0px 5px;
+	padding: 0;
 }
 
-span {
-	font-size: 26px;
+.INFO {
+	color: grey;
+}
+
+.ATTACK {
+	color: crimson;
+}
+
+.SHIELD {
+	color: blue;
+}
+
+.CHARGE {
+	color: goldenrod;
 }
