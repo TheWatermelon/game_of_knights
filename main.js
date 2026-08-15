@@ -56,6 +56,7 @@ const chargePos = {x: 490, y:328};
 let players = [];
 let playersColors = ["lightsalmon", "olivedrab", "skyblue", "thistle"];
 let activePlayerIndex = 0;
+let selectedPlayer = 0;
 
 // init game state
 const gamestates = {
@@ -126,20 +127,32 @@ Player.prototype.toString = function playerToString() {
 		"}";
 };
 
+// create a new LogEntry
 function LogEntry(msg, type) {
 	this.msg = msg;
 	this.type = type; 
 }
 
+// add a log entry both in the logEntries list and as a "p" element on the website
 function addLogEntry(msg, type="INFO") {
 	const newLog = new LogEntry(msg, type);
 	let logDiv = document.getElementById("log");
 	let entryElm = document.createElement("p");
-	entryElm.classList.add(type);
 
+	entryElm.classList.add(type);
 	entryElm.append(newLog.msg);
 
 	logDiv.insertBefore(entryElm, logDiv.firstChild);
+	logEntries.push(newLog);
+}
+
+// clears logEntries both in the list and on the website
+function flushEntries() {
+	let logDiv = document.getElementById("log");
+	for (let l = 0; l < logEntries.length; l++) {
+		logDiv.firstChild.remove();
+	}
+	while (logEntries.length > 0) { logEntries.pop(); }
 }
 
 // refreshDrawPile : if drawPile is empty; shuffle the discardPile into a new drawPile
@@ -262,11 +275,8 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 
 		// if remainingHp is zero, that player loses the game, discarding their cards
 		if (remainingHp <= 0) {
-			// discard all defendingPlayer hp
-			while(defendingPlayer.hp.length > 0) {
-				moveCard(defendingPlayer.hp, discardPile);
-			}
-			checkPlayerDead(defendingPlayer);
+			emptyPlayer(defendingPlayer);
+			addLogEntry(defendingPlayer.name + " has lost! Their cards are discarded.", "INFO");
 		} else {
 			// try replacing only one card to match the new hp
 			let replacementValue = 0;
@@ -345,48 +355,48 @@ function emptyPlayer(player) {
 }
 
 // check if a player has lost
-function checkPlayerDead(player) {
-	if(getTotal(player.hp) == 0) {
-		addLogEntry(player.name + " has lost ! All their cards are discarded.");
-		emptyPlayer(player);
-		const indexToRemove = players.indexOf(player);
-		// if the dead player would have been next, jump to the next one
-		if (activePlayerIndex + 1 == indexToRemove) {
-			nextPLayer();
-		}
-		const playerRemoved = players.splice(indexToRemove, 1)[0];
-		activePlayerIndex = activePlayerIndex % players.length;
-		return true;
-	}
-	else return false;
+function isPlayerDead(player) {
+	return (getTotal(player.hp) === 0);
 }
 
 // check if a player has won
-function checkPlayerWon() {
-	if (players.length === 1) return true;
-	else return false;
+function hasPlayerWon() {
+	let hasWon = true;
+	for (let p = 0; p < players.length; p++) {
+		if (p !== activePlayerIndex) {
+			if (!isPlayerDead(players[p])) hasWon = false;
+		}
+	}
+	return hasWon;
 }
 
 // switch to the next player
 function nextPLayer() {
 	activePlayerIndex = (activePlayerIndex + 1) % players.length;
+	while (getTotal(players[activePlayerIndex].hp) === 0) {
+		activePlayerIndex = (activePlayerIndex + 1) % players.length;
+	}
 	addLogEntry("Active Player: "+players[activePlayerIndex].name, "INFO");
 }
 
 // init game
 function initGame(numberOfPlayers) {
+	// rebuild the drawPile
+	while(discardPile.length > 0) { moveCard(discardPile, drawPile); }
 	// shuffle cards
 	drawPile = shuffle(drawPile);
 	// init players
 	activePlayerIndex = 0;
+	while (players.length > 0) { players.pop(); }
 	for(let p = 0; p < numberOfPlayers; p++) {
 		let newP = new Player("Player "+ (p+1));
 
 		let offset = {x:0, y:0};
-		offset.x = (p < 2) ? 50 : 550;
+		offset.x = (p < 2) ? 50 : 450;
 		offset.y = (p % 2 === 0) ? 400 : 0;
 		const pBox = [offset.x, offset.y, offset.x+250, offset.y+200];
 		newP.box = pBox;
+		console.log((p+1)+ ": " +pBox);
 
 		// distribute three cards to this player
 		moveCard(drawPile, newP.hp);
@@ -411,48 +421,63 @@ function isPointInBox(point, box) {
 // action on click
 var click=function(event) {
 	const clickPoint = [event.clientX, event.clientY];
-
+	// Main menu
 	if (GAMESTATE === gamestates['main menu']) {
+		// Check if we click on one of the boxes with the number of players
 		for (let b = 0; b < choosePlayersBoxes.length; b++) {
 			if (isPointInBox(clickPoint, choosePlayersBoxes[b])) {
+				// Init the game with 2-4 players depending on the box we clicked on
 				initGame(b+2);
+				// Show the game table
 				GAMESTATE = gamestates['table view'];
 				break;
 			}
 		}
+	// Click on Game over screen -> Go to main screen
 	} else if (GAMESTATE === gamestates['game over']) {
+		flushEntries();
 		GAMESTATE = gamestates['main menu'];
+	// Table view : we can only click on the draw pile
 	} else if (GAMESTATE === gamestates['table view']) {
-		if (isPointInBox(clickPoint, [drawPilePos.x, drawPilePos.y, drawPilePos.x + cardSizeOnScreen.width, drawPilePos.y + cardSizeOnScreen.height])) GAMESTATE = gamestates['action:choose'];
+		const drawPileBox = [drawPilePos.x, drawPilePos.y, drawPilePos.x + cardSizeOnScreen.width, drawPilePos.y + cardSizeOnScreen.height];
+		if (isPointInBox(clickPoint, drawPileBox)) GAMESTATE = gamestates['action:choose'];
+	// Choose action : we can click on an action box
 	} else if (GAMESTATE === gamestates['action:choose']) {
-		const attackBox = [attackPos.x, attackPos.y, attackPos.x+attackSprite.w/2, attackPos.y+attackSprite.h/2];
-		const changeShieldBox = [shieldPos.x, shieldPos.y, shieldPos.x+shieldSprite.w/2, shieldPos.y+shieldSprite.h/2];
-		const chargeBox = [chargePos.x, chargePos.y, chargePos.x+chargeSprite.w/2, chargePos.y+chargeSprite.h/2];
+		const attackBox = [attackPos.x, attackPos.y, attackPos.x+attackSprite.w/2+150, attackPos.y+attackSprite.h/2];
+		const changeShieldBox = [shieldPos.x, shieldPos.y, shieldPos.x+shieldSprite.w/2+200, shieldPos.y+shieldSprite.h/2];
+		const chargeBox = [chargePos.x, chargePos.y, chargePos.x+chargeSprite.w/2+170, chargePos.y+chargeSprite.h/2];
 
 		if (isPointInBox(clickPoint, attackBox)) { GAMESTATE = gamestates['action:attack']; }
 		else if (isPointInBox(clickPoint, changeShieldBox)) { GAMESTATE = gamestates['action:shield']; }
 		else if (isPointInBox(clickPoint, chargeBox)) { GAMESTATE = gamestates['action:charge']; }
+	// If an action has been chosen
 	} else if (GAMESTATE === gamestates['action:attack'] || 
 				GAMESTATE === gamestates['action:shield'] ||
 				GAMESTATE === gamestates['action:charge']) {
-		if (!showDrawPileTopCard && GAMESTATE !== gamestates['action:charge']) {
-			showDrawPileTopCard = true;
-		} else {
+		// If we show the top card, it means we have selected a player
+		if (showDrawPileTopCard) {
 			showDrawPileTopCard = false;
+			if (GAMESTATE === gamestates['action:attack']) { attackKnight(players[activePlayerIndex], players[selectedPlayer]); }
+			else if (GAMESTATE === gamestates['action:shield']) { changeShield(players[selectedPlayer]); }
+			else if (GAMESTATE === gamestates['action:charge']) { chargeKnight(players[selectedPlayer]); }
+
+			if (hasPlayerWon()) { 
+				addLogEntry(players[activePlayerIndex].name + " has won the game !");
+				GAMESTATE = gamestates['game over']; 
+			} else {
+				nextPLayer();
+				GAMESTATE = gamestates['table view'];
+			}
+		// We have to choose a player for the selected action
+		} else {
 			for (let p=0; p < players.length; p++) {
-				const pBox = players[p].box;
-
-				if (isPointInBox(clickPoint, pBox)) {
-					if (GAMESTATE === gamestates['action:attack']) { attackKnight(players[activePlayerIndex], players[p]); }
-					else if (GAMESTATE === gamestates['action:shield']) { changeShield(players[p]); }
-					else if (GAMESTATE === gamestates['action:charge']) { chargeKnight(players[p]); }
-
-					if (checkPlayerWon()) { 
-						addLogEntry(players[activePlayerIndex].name + " has won the game !");
-						GAMESTATE = gamestates['game over']; 
-					} else {
-						nextPLayer();
-						GAMESTATE = gamestates['table view'];
+				if(!isPlayerDead(players[p])) { 
+					const pBox = players[p].box;
+					// Click on a player
+					if (isPointInBox(clickPoint, pBox)) {
+						showDrawPileTopCard = true;
+						selectedPlayer = p;
+						break;
 					}
 				}
 			}
@@ -601,12 +626,13 @@ var updateClicks=function() {
 
 // draw player box
 function drawPlayerBox(ctx, player) {
+	const playerSize = {x: player.box[0], y:player.box[1], width:300, height:200};
 	ctx.fillStyle = playersColors[players.indexOf(player)];
 	// bigger rectangle
-	ctx.fillRect(player.box[0], player.box[1], player.box[2], player.box[3]);
+	ctx.fillRect(playerSize.x, playerSize.y, playerSize.width, playerSize.height);
 	ctx.fillStyle = "white";
 	// inner rectangle
-	ctx.fillRect(player.box[0]+4, player.box[1]+4, player.box[2]-8, player.box[3]-player.box[1]-8);
+	ctx.fillRect(playerSize.x+4, playerSize.y+4, playerSize.width-8, playerSize.height-8);
 	// name line
 	if (players.indexOf(player) % 2 === 0) ctx.fillRect(player.box[0]+10, player.box[1], player.name.length*10, 4);
 	else ctx.fillRect(player.box[0]+10, player.box[3]-4, player.name.length*10, 4);
@@ -651,8 +677,8 @@ function drawImage(ctx, image, srcX, srcY, srcW, srcH, destX, destY, destW, dest
 }
 
 // draw a card from sprites (src) to canvas (dest); coords are {x, y}
-function drawCard(srcCoord, destCoord) {
-	ctx.drawImage(spr, srcCoord.x, srcCoord.y, cardSize.width, cardSize.height, destCoord.x, destCoord.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
+function drawCard(srcCoord, destCoord, degrees=0) {
+	drawImage(ctx, spr, srcCoord.x, srcCoord.y, cardSize.width, cardSize.height, destCoord.x, destCoord.y, cardSizeOnScreen.width, cardSizeOnScreen.height, degrees);
 }
 
 // render game on canvas
@@ -669,7 +695,7 @@ let render=function() {
 		if(sprReady) {
 			ctx.fillStyle = "white";
 			ctx.fillRect(0, 0, 800, 600);
-			ctx.fillStyle = "black";
+			
 			// drawPile
 			drawCard(cardFaceDown, drawPilePos);
 			// discardPile
@@ -707,45 +733,45 @@ let render=function() {
 			
 			// draw players
 			for (let p = 0; p < players.length; p++) {
-				if(p === activePlayerIndex || (GAMESTATE >= gamestates['action:attack'] && GAMESTATE <= gamestates['action:charge'] && !showDrawPileTopCard)) {
-					//ctx.fillStyle = playersColors[p];
-					//ctx.fillRect(players[p].box[0]-5,players[p].box[1]+90,20,20);
-					//ctx.fillStyle = "white";
-					drawPlayerBox(ctx, players[p]);
-				}
+				if(!isPlayerDead(players[p])) {
+					// Show a colored box around the active player, or all players if we have to choose a player for an action
+					if(p === activePlayerIndex || (GAMESTATE >= gamestates['action:attack'] && GAMESTATE <= gamestates['action:charge'] && !showDrawPileTopCard)) {
+						drawPlayerBox(ctx, players[p]);
+					}
 
-				let hpCardsPos = {x:players[p].box[0]+40, y:0};
-				hpCardsPos.y = (p % 2 === 0) ? players[p].box[1] + (200 - 10 - 78) : 10;
+					// draw hp
+					let hpCardsPos = {x:players[p].box[0]+40, y:0};
+					hpCardsPos.y = (p % 2 === 0) ? players[p].box[1] + (200 - 10 - 78) : 10;
+					for (let hpCard = 0; hpCard < players[p].hp.length; hpCard++) {
+						const hpCardCoord = getSpriteCoordFor(players[p].hp[hpCard]);
+						hpCardsPos.x = hpCardsPos.x + hpCard*71.5;
+						drawCard(hpCardCoord,hpCardsPos);
+					}
 
-				for (let hpCard = 0; hpCard < players[p].hp.length; hpCard++) {
-					const hpCardCoord = getSpriteCoordFor(players[p].hp[hpCard]);
-					ctx.drawImage(spr, hpCardCoord.x, hpCardCoord.y, cardSize.width, cardSize.height, hpCardsPos.x + hpCard*71.5, hpCardsPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
-				}
-
-				// draw shield
-				let shieldCardPos = {x:players[p].box[0] + 40 + 65 - cardSizeOnScreen.width/2, y:0};
-				shieldCardPos.y = (p % 2 === 0) ? players[p].box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
-				const shieldCardCoord = getSpriteCoordFor(players[p].shield[0]);
-				drawImage(ctx, spr, shieldCardCoord.x, shieldCardCoord.y, cardSize.width, cardSize.height, shieldCardPos.x, shieldCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height, 90);
-				//ctx.drawImage(spr, shieldCardCoord.x, shieldCardCoord.y, cardSize.width, cardSize.height, shieldCardPos.x, shieldCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
+					// draw shield
+					let shieldCardPos = {x:players[p].box[0] + 40 + 65 - cardSizeOnScreen.width/2, y:0};
+					shieldCardPos.y = (p % 2 === 0) ? players[p].box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
+					const shieldCardCoord = getSpriteCoordFor(players[p].shield[0]);
+					drawCard(shieldCardCoord, shieldCardPos, 90);
 					
-				// draw charge
-				if (players[p].charge.length > 0) {
-					let chargeCardPos = {x:players[p].box[0] + 40 + 65 + 65 + 10, y:0};
-					chargeCardPos.y = (p % 2 == 0) ? players[p].box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
-					if (GAMESTATE === gamestates['action:attack'] && showDrawPileTopCard && p === activePlayerIndex) {
-						for (let c = 0; c < players[p].charge.length; c++) {
-							let chargeSpr = getSpriteCoordFor(players[p].charge[c]);
-							ctx.drawImage(spr, chargeSpr.x, chargeSpr.y, cardSize.width, cardSize.height, chargeCardPos.x, chargeCardPos.y + c*20, cardSizeOnScreen.width, cardSizeOnScreen.height);
+					// draw charge
+					if (players[p].charge.length > 0) {
+						let chargeCardPos = {x:players[p].box[0] + 40 + 65 + 65 + 10, y:0};
+						chargeCardPos.y = (p % 2 == 0) ? players[p].box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
+						if (GAMESTATE === gamestates['action:attack'] && showDrawPileTopCard && p === activePlayerIndex) {
+							for (let c = 0; c < players[p].charge.length; c++) {
+								let chargeSpr = getSpriteCoordFor(players[p].charge[c]);
+								drawCard(chargeSpr, chargeCardPos);
+							}
+						} else {
+							drawCard(cardFaceDown, chargeCardPos);
+							ctx.fillStyle = "goldenrod";
+							ctx.fillRect(chargeCardPos.x-2, chargeCardPos.y-2, 29, 29);
+							ctx.fillStyle = "white";
+							ctx.fillRect(chargeCardPos.x, chargeCardPos.y, 25, 25);
+							ctx.fillStyle = "black";
+							ctx.fillText(players[p].charge.length, chargeCardPos.x+7, chargeCardPos.y+20);
 						}
-					} else {
-						ctx.drawImage(spr, cardFaceDown.x, cardFaceDown.y, cardSize.width, cardSize.height, chargeCardPos.x, chargeCardPos.y, cardSizeOnScreen.width, cardSizeOnScreen.height);
-						ctx.fillStyle = "goldenrod";
-						ctx.fillRect(chargeCardPos.x-2, chargeCardPos.y-2, 29, 29);
-						ctx.fillStyle = "white";
-						ctx.fillRect(chargeCardPos.x, chargeCardPos.y, 25, 25);
-						ctx.fillStyle = "black";
-						ctx.fillText(players[p].charge.length, chargeCardPos.x+7, chargeCardPos.y+20);
 					}
 				}
 			}
