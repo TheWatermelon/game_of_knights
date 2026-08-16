@@ -12,7 +12,7 @@ let logEntries = [];
 let spr=new Image();
 let sprReady=false;
 spr.onload=function() { sprReady=true; };
-spr.src='sprites.jpg';
+spr.src='sprites.png';
 
 // Main menu
 let mainMenuScreen=new Image();
@@ -56,7 +56,7 @@ const chargePos = {x: 490, y:328};
 let players = [];
 let playersColors = ["lightsalmon", "olivedrab", "skyblue", "thistle"];
 let activePlayerIndex = 0;
-let selectedPlayer = 0;
+let selectedPlayer = -1;
 
 // init game state
 const gamestates = {
@@ -172,7 +172,6 @@ function moveCard(fromPile, toPile, card=fromPile[0]) {
 	if (index !== -1) {
 		const removedCard = fromPile.splice(index, 1)[0];
 		toPile.push(removedCard);
-		console.log("moved " + removedCard + " (" + getCardName(removedCard) + ")");
 		return removedCard;
 	} else {
 		console.log("Card not found in the origin pile");
@@ -262,7 +261,6 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 	// if totalAttack goes through the shield
 	const shieldValue = getCardValue(defendingPlayer.shield[0]);
 
-	//console.log("trying to attack " + shieldValue + " with " + totalAttack);
 	addLogEntry("Trying to attack " + defendingPlayer.name + " with a total attack value of " + totalAttack, "ATTACK");
 
 	if (totalAttack > shieldValue) {
@@ -298,7 +296,6 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 				}
 				replacementValue = remainingHp;
 			}
-			//console.log("totalHp: " + totalHp + " losingPoints: " + losingPoints + " replacement value: " + replacementValue);
 
 			// find replacement card(s)
 			let replacementCards = [];
@@ -452,14 +449,16 @@ var click=function(event) {
 		else if (isPointInBox(clickPoint, chargeBox)) { GAMESTATE = gamestates['action:charge']; }
 	// If an action has been chosen
 	} else if (GAMESTATE === gamestates['action:attack'] || 
-				GAMESTATE === gamestates['action:shield'] ||
-				GAMESTATE === gamestates['action:charge']) {
+			GAMESTATE === gamestates['action:shield'] ||
+			GAMESTATE === gamestates['action:charge']) {
 		// If we show the top card, it means we have selected a player
-		if (showDrawPileTopCard) {
-			showDrawPileTopCard = false;
+		if (selectedPlayer >= 0) {
 			if (GAMESTATE === gamestates['action:attack']) { attackKnight(players[activePlayerIndex], players[selectedPlayer]); }
 			else if (GAMESTATE === gamestates['action:shield']) { changeShield(players[selectedPlayer]); }
 			else if (GAMESTATE === gamestates['action:charge']) { chargeKnight(players[selectedPlayer]); }
+
+			selectedPlayer = -1;
+			showDrawPileTopCard = false;
 
 			if (hasPlayerWon()) { 
 				addLogEntry(players[activePlayerIndex].name + " has won the game !");
@@ -475,7 +474,7 @@ var click=function(event) {
 					const pBox = players[p].box;
 					// Click on a player
 					if (isPointInBox(clickPoint, pBox)) {
-						showDrawPileTopCard = true;
+						if (GAMESTATE !== gamestates['action:charge']) showDrawPileTopCard = true;
 						selectedPlayer = p;
 						break;
 					}
@@ -486,6 +485,13 @@ var click=function(event) {
 }
 // make the canvas clickable
 c.onclick=click;
+
+function showHelp() {
+	alert("RULES\n \
+		- Attack a knight\n \
+		- Change a knight's shield\n \
+		- Charge a knight");
+}
 
 /*
 var init=function(lvl) {
@@ -693,6 +699,7 @@ let render=function() {
 		}
 	} else {
 		if(sprReady) {
+			// clean up the canvas
 			ctx.fillStyle = "white";
 			ctx.fillRect(0, 0, 800, 600);
 			
@@ -720,7 +727,7 @@ let render=function() {
 				} else {
 					// draw a face down card on top of the draw pile to mimic a "draw effect"
 					drawCard(cardFaceDown, drawEffetPos);
-
+					// only draw the chosen action
 					if (GAMESTATE === gamestates['action:attack']) {
 						drawAttackActionOnCanvas();
 					} else if (GAMESTATE === gamestates['action:shield']) {
@@ -757,13 +764,19 @@ let render=function() {
 					// draw charge
 					if (players[p].charge.length > 0) {
 						let chargeCardPos = {x:players[p].box[0] + 40 + 65 + 65 + 10, y:0};
-						chargeCardPos.y = (p % 2 == 0) ? players[p].box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
+						chargeCardPos.y = (p % 2 === 0) ? players[p].box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
+						// if the active player is attacking
 						if (GAMESTATE === gamestates['action:attack'] && showDrawPileTopCard && p === activePlayerIndex) {
+							// showing charges in a cascade
 							for (let c = 0; c < players[p].charge.length; c++) {
 								let chargeSpr = getSpriteCoordFor(players[p].charge[c]);
-								drawCard(chargeSpr, chargeCardPos);
+								let chargeCascadeOffset = c*26;
+								let chargeCascade = {x:chargeCardPos.x, y:chargeCardPos.y};
+								chargeCascade.y += (p % 2 === 0) ? chargeCascadeOffset : (-1)*chargeCascadeOffset;
+								drawCard(chargeSpr, chargeCascade);
 							}
 						} else {
+							// show a face down card with the number of charges written in a corner
 							drawCard(cardFaceDown, chargeCardPos);
 							ctx.fillStyle = "goldenrod";
 							ctx.fillRect(chargeCardPos.x-2, chargeCardPos.y-2, 29, 29);
@@ -790,5 +803,4 @@ let main = function () {
 let w = window;
 requestAnimationFrame = w.requestAnimationFrame || w.webkitRequestAnimationFrame || w.msRequestAnimationFrame || w.mozRequestAnimationFrame;
 
-//initGame(2);
 main();
