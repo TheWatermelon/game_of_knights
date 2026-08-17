@@ -487,16 +487,9 @@ var click=function(event) {
 c.onclick=click;
 
 // show the rules of the game
-function showHelp() {
-	alert("RULES\n \
-Game of knights is a tabletop game using a pack of 52 cards. It can be played with 2+ players.\n \
-Shuffle the pack of cards. Each knight starts with two face-up cards as lifepoints (sum of their values) and one face-up shield card.\n \
-The rest of the deck is the draw pile.\n \
-On your turn, choose one action. Then draw the top card of the draw pile and resolve the action:\n \
-- Change Shield: replace any knight's shield with the drawn card. Their old shield goes to the discard pile.\n \
-- Charge: place the drawn card face-down next to a knight as a charge. It adds to this knight's next attack.\n \
-- Attack: your attack value is the drawn card plus all your charges. If your attack is higher than the defender's shield, they lose lifepoints equal to the difference. After attacking, discard the drawn card, your charges and the defending knight's charges.\n \
-A knight loses at 0 lifepoints. The last knight standing wins.");
+function showHelp(show) {
+	const rulesDiv = document.getElementById("rules");	
+	rulesDiv.toggle("visible", show);
 }
 
 /*
