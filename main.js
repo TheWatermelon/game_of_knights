@@ -489,7 +489,7 @@ c.onclick=click;
 // show the rules of the game
 function showHelp(show) {
 	const rulesDiv = document.getElementById("rules");	
-	rulesDiv.toggle("visible", show);
+	rulesDiv.style.display = show ? "block" : "none";
 }
 
 /*
