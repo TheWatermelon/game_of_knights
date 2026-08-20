@@ -43,7 +43,6 @@ const discardPilePos = {x:400 - cardSizeOnScreen.width, y:300 - cardSizeOnScreen
 const deck = createDeck(); // creates a reference for the cards (id, value, color)
 let drawPile = Array.from({ length: 52 }, (_, i) => i + 1);
 let discardPile = [];
-let isCardAnimating = false; // if a card is being animated
 
 // init actions
 const attackSprite = {x:1765, y:208, w:115, h:116};
@@ -243,13 +242,14 @@ function changeShield(player) {
 	const oldShieldCardCoord = getSpriteCoordFor(player.shield[0]);
 	const newShieldCardCoord = getSpriteCoordFor(drawPile[0]);
 
-	animateCard(oldShieldCardCoord, shieldCardPos, discardPilePos, 1000);
-	// discarding old shield
-	moveCard(player.shield, discardPile);
+	animateCard(oldShieldCardCoord, shieldCardPos, discardPilePos, 300);
 
-	animateCard(newShieldCardCoord, drawEffetPos, shieldCardPos, 1000);
+	// discarding old shield
+	setTimeout(() => moveCard(player.shield, discardPile), 300);
+
+	animateCard(newShieldCardCoord, drawEffetPos, shieldCardPos, 300);
 	// first card of the draw pile as the new shield
-	moveCard(drawPile, player.shield);
+	setTimeout(() => moveCard(drawPile, player.shield), 300);
 
 	addLogEntry("Changing " + player.name + "'s shield for " + getCardName(player.shield[0]), "SHIELD");
 }
@@ -260,10 +260,10 @@ function chargeKnight(player) {
 	let chargeCardPos = {x:player.box[0] + 40 + 65 + 65 + 10, y:0, degrees:0};
 	chargeCardPos.y = (players.indexOf(player) % 2 === 0) ? player.box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
 
-	animateCard(cardFaceDown, drawEffetPos, chargeCardPos, 600);
+	animateCard(cardFaceDown, drawEffetPos, chargeCardPos, 200);
 
 	// add the first card of drawPile to the player's charges
-	moveCard(drawPile, player.charge);
+	setTimeout(() => moveCard(drawPile, player.charge), 200);
 
 	addLogEntry("Charging " + player.name, "CHARGE");
 }
@@ -434,9 +434,6 @@ function isPointInBox(point, box) {
 
 function animateCard(cardSpr, src, dest, duration) {
 	const startTime = performance.now();
-	let oldPos = {x: src.x, y: src.y, degrees: src.degrees};
-
-	isCardAnimating = true;
 
 	function step(now) {
 		const elapsed = now - startTime;
@@ -449,16 +446,10 @@ function animateCard(cardSpr, src, dest, duration) {
 			degrees:src.degrees + (dest.degrees - src.degrees) * t
 		};
 
-		//drawCard(blankSpr, oldPos, oldPos.degrees) // draw a blank card here
-		// Draw your sprite here
 		drawCard(cardSpr, cardPos, cardPos.degrees);
-
-		oldPos = CardPos;
 
 		if (t < 1) {
 			requestAnimationFrame(step);
-		} else {
-			isCardAnimating = false;
 		}
 	}
 
@@ -699,7 +690,7 @@ let render=function() {
 // The main game loop
 let main = function () {
 	// run the render function
-	if(!isCardAnimating) render();
+	render();
 	// Request to do this again ASAP
 	requestAnimationFrame(main);
 };
