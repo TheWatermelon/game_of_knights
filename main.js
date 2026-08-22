@@ -111,6 +111,7 @@ function createDeck() {
 // create a new player
 function Player(playerName = "") {
 	this.name = playerName;
+	this.isDead = false;
 	this.showHp = true;
 	this.hp = [];
 	this.hpCardsPos = {};
@@ -286,17 +287,21 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 	const topCardSpr = getSpriteCoordFor(drawPile[0]);
 	let attackAnimationPos = {
 		x:defendingPlayer.box[0]+50, 
-		y:(defendingPlayer.box[3]<300) ? defendingPlayer.box[3]-125 : defendingPlayer.box[1]+25, 
+		y:(defendingPlayer.box[3]<300) ? defendingPlayer.box[3]-75 : defendingPlayer.box[1]+25, 
 		degrees:0
 	};
+	animateCard(topCardSpr, drawEffetPos, attackAnimationPos, 200);
+	totalAnimationDuration += 200;
+
+	// ## ANIMATION 2-2 ##
+	// the attack card bounces from the shield, a bit tilted
 	// attackBounceAnimationPos, the position of the tilted card
 	let attackBounceAnimationPos = {
 		x:attackAnimationPos.x,
 		y:(defendingPlayer.box[3] < 300) ? attackAnimationPos.y + 50 : attackAnimationPos.y - 50,
 		degrees:(defendingPlayer.box[3] < 300) ? 45 : -45
 	};
-	animateCard(topCardSpr, drawEffetPos, attackAnimationPos, 200);
-	totalAnimationDuration += 200;
+	setTimeout(() => animateCard(topCardSpr, attackAnimationPos, attackBounceAnimationPos, 400), totalAnimationDuration);
 	
 	addLogEntry("Trying to attack " + defendingPlayer.name + " with a total attack value of " + totalAttack, "ATTACK");
 
@@ -308,9 +313,14 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 		const totalHp = getTotal(defendingPlayer.hp);
 		const remainingHp = Math.max(0, totalHp - losingPoints);
 
+		setTimeout(() => blinkPlayer(defendingPlayer, 400), totalAnimationDuration);
+		totalAnimationDuration += 400;
+
 		// if remainingHp is zero, that player loses the game, discarding their cards
 		if (remainingHp <= 0) {
-			setTimeout(() => emptyPlayer(defendingPlayer), totalAnimationDuration);
+			let emptyPlayerDuration = 0;
+			setTimeout(() => emptyPlayerDuration = emptyPlayer(defendingPlayer), totalAnimationDuration);
+			totalAnimationDuration += emptyPlayerDuration;
 			addLogEntry(defendingPlayer.name + " has lost! Their cards are discarded.", "INFO");
 		} else {
 			// try replacing only one card to match the new hp
@@ -321,6 +331,13 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 				// if replacementValue can be a card
 				if (replacementValue >= 1 && replacementValue <= 13) {
 					// discard one card from defending player hp
+					let lostHpCardSpr = getSpriteCoordFor(defendingPlayer.hp[i]);
+					let lostHpCardPos = {
+						x:defendingPlayer.hpCardsPos.x + i*71.5,
+						y:defendingPlayer.hpCardsPos.y
+					};
+					animateCard(lostHpCardSpr, lostHpCardPos, discardPile, 200);
+					totalAnimationDuration += 200;
 					setTimeout(() => moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[i]), totalAnimationDuration);
 					break;
 				}
@@ -328,8 +345,15 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 			// one card isn't enough
 			if (replacementValue <= 0) {
 				// discard all defendingPlayer hp
-				while(defendingPlayer.hp.length > 0) {
-					setTimeout(() => moveCard(defendingPlayer.hp, discardPile), totalAnimationDuration);
+				for (let hpCard = defendingPlayer.hp.length - 1; hpCard >= 0; hpCard--) {
+					let hpCardsPosOffset = {
+						x:defendingPlayer.hpCardsPos.x + hpCard*71.5,
+						y:defendingPlayer.hpCardsPos.y
+					};
+					let hpCardSpr = getSpriteCoordFor(defendingPlayer.hp[hpCard]);
+					setTimeout(() => animateCard(hpCardSpr, hpCardsPosOffset, discardPilePos, 200), totalAnimationDuration);
+					totalAnimationDuration += 200;
+					setTimeout(() => moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[hpCard]), totalAnimationDuration);
 				}
 				replacementValue = remainingHp;
 			}
@@ -357,17 +381,19 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 			
 			// add replacement card(s) to defendingPlayer hp
 			for (let c = 0; c < replacementCards.length; c++) {
-				
+				let replacementCardSpr = getSpriteCoordFor(replacementCards[c][1]);
+				let replacementCardPos = {
+					x:defendingPlayer.hpCardsPos.x + c*71.5,
+					y:defendingPlayer.hpCardsPos.y
+				};
+				animateCard(replacementCardSpr, discardPilePos, replacementCardPos, 200);
+				totalAnimationDuration += 200;
 				setTimeout(() => moveCard(replacementCards[c][0], defendingPlayer.hp, replacementCards[c][1]), totalAnimationDuration);
 			}
 
 			addLogEntry(defendingPlayer.name + " has lost " + losingPoints + " points", "ATTACK");
 		}
 	} else {
-		// ## ANIMATION 2-2 ##
-		// the attack card bounces from the shield, a bit tilted
-		setTimeout(() => animateCard(topCardSpr, attackAnimationPos, attackBounceAnimationPos, 400), totalAnimationDuration);
-		totalAnimationDuration += 400;
 		addLogEntry(defendingPlayer.name + " stood still !", "ATTACK");
 	}
 
@@ -378,11 +404,14 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 
 	// defending player looses all their charges on an attack
 	while(defendingPlayer.charge.length > 0) {
+		let chargeCardSpr = getSpriteCoordFor(defendingPlayer.charge[0]);
+		animateCard(chargeCardSpr, defendingPlayer.chargeCardPos, discardPilePos, 200);
+		totalAnimationDuration += 200;
 		setTimeout(() => moveCard(defendingPlayer.charge, discardPile), totalAnimationDuration);
 	}
 
 	// ## ANIMATION 3 ##
-	// the attack card is discarded
+	// the attack card is moved to the discard pile
 	setTimeout(() => animateCard(topCardSpr, attackBounceAnimationPos, discardPilePos, 200), totalAnimationDuration);
 	totalAnimationDuration += 200;
 	// discarding the attack card
@@ -391,15 +420,38 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 
 // empty player : discard all their cards
 function emptyPlayer(player) {
-	while(player.shield.length > 0) { moveCard(player.shield, discardPile); }
-	while(player.hp.length > 0) { moveCard(player.hp, discardPile); }
-	while(player.charge.length > 0) {moveCard(player.charge, discardPile); }
-	return player;
+	let totalAnimationDuration = 0;
+	let shieldCardSpr = getSpriteCoordFor(player.shield[0]);
+	animateCard(shieldCardSpr, player.shieldCardPos, discardPilePos, 200);
+	totalAnimationDuration += 200;
+	setTimeout(() => moveCard(player.shield, discardPile), totalAnimationDuration); 
+
+	for(let chargeCard = 0; chargeCard < player.charge.length; chargeCard++) {
+		let chargeCardSpr = getSpriteCoordFor(player.charge[chargeCard]);
+		setTimeout(() => animateCard(chargeCardSpr, player.chargeCardPos, discardPilePos, 200), totalAnimationDuration);
+		totalAnimationDuration += 200;
+		setTimeout(() => moveCard(player.charge, discardPile), totalAnimationDuration);
+	}
+
+	setTimeout(() => player.showHp = false, totalAnimationDuration);
+	for (let hpCard = player.hp.length - 1; hpCard >= 0; hpCard--) {
+		let hpCardsPosOffset = {
+			x:player.hpCardsPos.x + hpCard*71.5,
+			y:player.hpCardsPos.y
+		};
+		let hpCardSpr = getSpriteCoordFor(player.hp[hpCard]);
+		setTimeout(() => animateCard(hpCardSpr, hpCardsPosOffset, discardPilePos, 200), totalAnimationDuration);
+		totalAnimationDuration += 200;
+		setTimeout(() => moveCard(player.hp, discardPile, player.hp[hpCard]), totalAnimationDuration);
+	}
+
+	return totalAnimationDuration;
 }
 
 // check if a player has lost, return true if its hp are 0
 function isPlayerDead(player) {
-	return (getTotal(player.hp) === 0);
+	if (!player.isDead) { player.isDead = (getTotal(player.hp) === 0); } 
+	return player.isDead;
 }
 
 // check if a player has won, return true if there is only one player not dead
@@ -450,7 +502,7 @@ function initGame(numberOfPlayers) {
 		hpCardsPos.y = (p % 2 === 0) ? newP.box[1] + (200 - 10 - 78) : 10;
 		newP.hpCardsPos = hpCardsPos;
 		// shield
-		let shieldCardPos = {x:newP.box[0] + 40 + 65 - cardSizeOnScreen.width/2, y:0};
+		let shieldCardPos = {x:newP.box[0] + 40 + 65 - cardSizeOnScreen.width/2, y:0, degrees:90};
 		shieldCardPos.y = (p % 2 === 0) ? newP.box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
 		newP.shieldCardPos = shieldCardPos;
 		// charge
@@ -579,7 +631,6 @@ function animateCard(cardSpr, src, dest, duration) {
 function blinkPlayer(player, duration) {
 	for (let t = 0; t < duration; t+=100) {
 		setTimeout(() => player.showHp = !player.showHp, t);
-		setTimeout(() => console.log("blink"), t);
 	}
 }
 
@@ -693,7 +744,7 @@ let render=function() {
 					if(p === activePlayerIndex || (GAMESTATE >= gamestates['action:attack'] && GAMESTATE <= gamestates['action:charge'])) { drawPlayerBox(ctx, players[p]); }
 
 					// draw hp
-					if(players[p].showHp) {
+					if(players[p].showHp && players[p].hp.length > 0) {
 						let hpCardsPosOffset = {
 							x:players[p].hpCardsPos.x,
 							y:players[p].hpCardsPos.y
@@ -706,9 +757,11 @@ let render=function() {
 					}
 
 					// draw shield
-					const shieldCardCoord = getSpriteCoordFor(players[p].shield[0]);
-					drawCard(shieldCardCoord, players[p].shieldCardPos, 90);
-					
+					if(players[p].shield.length > 0) {
+						const shieldCardCoord = getSpriteCoordFor(players[p].shield[0]);
+						drawCard(shieldCardCoord, players[p].shieldCardPos, players[p].shieldCardPos.degrees);
+					}
+
 					// draw charge
 					if (players[p].charge.length > 0) {
 						// if the active player is attacking
@@ -749,6 +802,6 @@ let main = function () {
 let w = window;
 requestAnimationFrame = w.requestAnimationFrame || w.webkitRequestAnimationFrame || w.msRequestAnimationFrame || w.mozRequestAnimationFrame;
 
-initGame(2); // test purposes
+initGame(3); // test purposes
 
 main();
