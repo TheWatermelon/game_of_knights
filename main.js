@@ -68,7 +68,7 @@ const gamestates = {
 	"action:charge":23,
 	"game over":4
 };
-let GAMESTATE = gamestates['main menu'];
+let GAMESTATE = gamestates['table view'];
 let showDrawPileTopCard = false;
 
 // Fisher-Yates Shuffle
@@ -111,9 +111,13 @@ function createDeck() {
 // create a new player
 function Player(playerName = "") {
 	this.name = playerName;
+	this.showHp = true;
 	this.hp = [];
+	this.hpCardsPos = {};
 	this.shield = [];
+	this.shieldCardPos = {};
 	this.charge = [];
+	this.chargeCardPos = {};
 	this.box = [];
 }
 
@@ -259,9 +263,8 @@ function chargeKnight(player) {
 	// charge coords
 	let chargeCardPos = {x:player.box[0] + 40 + 65 + 65 + 10, y:0, degrees:0};
 	chargeCardPos.y = (players.indexOf(player) % 2 === 0) ? player.box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
-
+	// move the top card to charge pos
 	animateCard(cardFaceDown, drawEffetPos, chargeCardPos, 200);
-
 	// add the first card of drawPile to the player's charges
 	setTimeout(() => moveCard(drawPile, player.charge), 200);
 
@@ -277,6 +280,24 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 	// if totalAttack goes through the shield
 	const shieldValue = getCardValue(defendingPlayer.shield[0]);
 
+	let totalAnimationDuration = 0;
+	// ## ANIMATION 1 ##
+	// move the top card in front of defending player shield
+	const topCardSpr = getSpriteCoordFor(drawPile[0]);
+	let attackAnimationPos = {
+		x:defendingPlayer.box[0]+50, 
+		y:(defendingPlayer.box[3]<300) ? defendingPlayer.box[3]-125 : defendingPlayer.box[1]+25, 
+		degrees:0
+	};
+	// attackBounceAnimationPos, the position of the tilted card
+	let attackBounceAnimationPos = {
+		x:attackAnimationPos.x,
+		y:(defendingPlayer.box[3] < 300) ? attackAnimationPos.y + 50 : attackAnimationPos.y - 50,
+		degrees:(defendingPlayer.box[3] < 300) ? 45 : -45
+	};
+	animateCard(topCardSpr, drawEffetPos, attackAnimationPos, 200);
+	totalAnimationDuration += 200;
+	
 	addLogEntry("Trying to attack " + defendingPlayer.name + " with a total attack value of " + totalAttack, "ATTACK");
 
 	if (totalAttack > shieldValue) {
@@ -289,7 +310,7 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 
 		// if remainingHp is zero, that player loses the game, discarding their cards
 		if (remainingHp <= 0) {
-			emptyPlayer(defendingPlayer);
+			setTimeout(() => emptyPlayer(defendingPlayer), totalAnimationDuration);
 			addLogEntry(defendingPlayer.name + " has lost! Their cards are discarded.", "INFO");
 		} else {
 			// try replacing only one card to match the new hp
@@ -300,7 +321,7 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 				// if replacementValue can be a card
 				if (replacementValue >= 1 && replacementValue <= 13) {
 					// discard one card from defending player hp
-					moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[i]);
+					setTimeout(() => moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[i]), totalAnimationDuration);
 					break;
 				}
 			}
@@ -308,7 +329,7 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 			if (replacementValue <= 0) {
 				// discard all defendingPlayer hp
 				while(defendingPlayer.hp.length > 0) {
-					moveCard(defendingPlayer.hp, discardPile);
+					setTimeout(() => moveCard(defendingPlayer.hp, discardPile), totalAnimationDuration);
 				}
 				replacementValue = remainingHp;
 			}
@@ -337,27 +358,35 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 			// add replacement card(s) to defendingPlayer hp
 			for (let c = 0; c < replacementCards.length; c++) {
 				
-				moveCard(replacementCards[c][0], defendingPlayer.hp, replacementCards[c][1]);
+				setTimeout(() => moveCard(replacementCards[c][0], defendingPlayer.hp, replacementCards[c][1]), totalAnimationDuration);
 			}
 
 			addLogEntry(defendingPlayer.name + " has lost " + losingPoints + " points", "ATTACK");
 		}
 	} else {
+		// ## ANIMATION 2-2 ##
+		// the attack card bounces from the shield, a bit tilted
+		setTimeout(() => animateCard(topCardSpr, attackAnimationPos, attackBounceAnimationPos, 400), totalAnimationDuration);
+		totalAnimationDuration += 400;
 		addLogEntry(defendingPlayer.name + " stood still !", "ATTACK");
 	}
 
-	// discarding the attack card
-	moveCard(drawPile, discardPile);
-
 	// discarding all charges
 	while(attackingPlayer.charge.length > 0) {
-		moveCard(attackingPlayer.charge, discardPile);
+		setTimeout(() => moveCard(attackingPlayer.charge, discardPile), totalAnimationDuration);
 	}
 
 	// defending player looses all their charges on an attack
 	while(defendingPlayer.charge.length > 0) {
-		moveCard(defendingPlayer.charge, discardPile);
+		setTimeout(() => moveCard(defendingPlayer.charge, discardPile), totalAnimationDuration);
 	}
+
+	// ## ANIMATION 3 ##
+	// the attack card is discarded
+	setTimeout(() => animateCard(topCardSpr, attackBounceAnimationPos, discardPilePos, 200), totalAnimationDuration);
+	totalAnimationDuration += 200;
+	// discarding the attack card
+	setTimeout(() => moveCard(drawPile, discardPile), totalAnimationDuration);
 }
 
 // empty player : discard all their cards
@@ -368,12 +397,12 @@ function emptyPlayer(player) {
 	return player;
 }
 
-// check if a player has lost
+// check if a player has lost, return true if its hp are 0
 function isPlayerDead(player) {
 	return (getTotal(player.hp) === 0);
 }
 
-// check if a player has won
+// check if a player has won, return true if there is only one player not dead
 function hasPlayerWon() {
 	let hasWon = true;
 	for (let p = 0; p < players.length; p++) {
@@ -386,7 +415,9 @@ function hasPlayerWon() {
 
 // switch to the next player
 function nextPLayer() {
+	// cycle through players
 	activePlayerIndex = (activePlayerIndex + 1) % players.length;
+	// skip "dead" player
 	while (getTotal(players[activePlayerIndex].hp) === 0) {
 		activePlayerIndex = (activePlayerIndex + 1) % players.length;
 	}
@@ -404,22 +435,37 @@ function initGame(numberOfPlayers) {
 	while (players.length > 0) { players.pop(); }
 	for(let p = 0; p < numberOfPlayers; p++) {
 		let newP = new Player("Player "+ (p+1));
-
+		// create player box based on its id
+		// 0 -> bottom left
+		// 1 -> top left
+		// 2 -> bottom right
+		// 3 -> top right
 		let offset = {x:0, y:0};
 		offset.x = (p < 2) ? 50 : 450;
 		offset.y = (p % 2 === 0) ? 400 : 0;
 		const pBox = [offset.x, offset.y, offset.x+250, offset.y+200];
 		newP.box = pBox;
-		console.log((p+1)+ ": " +pBox);
+		// hp
+		let hpCardsPos = {x:newP.box[0]+40, y:0};
+		hpCardsPos.y = (p % 2 === 0) ? newP.box[1] + (200 - 10 - 78) : 10;
+		newP.hpCardsPos = hpCardsPos;
+		// shield
+		let shieldCardPos = {x:newP.box[0] + 40 + 65 - cardSizeOnScreen.width/2, y:0};
+		shieldCardPos.y = (p % 2 === 0) ? newP.box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
+		newP.shieldCardPos = shieldCardPos;
+		// charge
+		let chargeCardPos = {x:newP.box[0] + 40 + 65 + 65 + 10, y:0};
+		chargeCardPos.y = (p % 2 === 0) ? newP.box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
+		newP.chargeCardPos = chargeCardPos;
 
 		// distribute three cards to this player
 		moveCard(drawPile, newP.hp);
 		moveCard(drawPile, newP.hp);
 		moveCard(drawPile, newP.shield);
-
+		// add the new player to players list
 		players.push(newP);
 	}
-
+	// logs
 	addLogEntry("Starting a game with " +numberOfPlayers+" players !", "INFO");
 	addLogEntry("Active Player: "+players[activePlayerIndex].name, "INFO");
 }
@@ -430,30 +476,6 @@ function isPointInBox(point, box) {
 	// box is [x1, y1, x2, y2];
 	if(point[0] >= box[0] && point[0] <= box[2] && point[1] >= box[1] && point[1] <= box[3]) return true;
 	else return false;
-}
-
-function animateCard(cardSpr, src, dest, duration) {
-	const startTime = performance.now();
-
-	function step(now) {
-		const elapsed = now - startTime;
-		const t = Math.min(elapsed / duration, 1); // 0 → 1
-
-		// Linear interpolation
-		const cardPos = {
-			x:src.x + (dest.x - src.x) * t,
-			y:src.y + (dest.y - src.y) * t,
-			degrees:src.degrees + (dest.degrees - src.degrees) * t
-		};
-
-		drawCard(cardSpr, cardPos, cardPos.degrees);
-
-		if (t < 1) {
-			requestAnimationFrame(step);
-		}
-	}
-
-	requestAnimationFrame(step);
 }
 
 // action on click
@@ -529,6 +551,36 @@ c.onclick=click;
 function showHelp(show) {
 	const rulesDiv = document.getElementById("rules");	
 	rulesDiv.style.display = show ? "block" : "none";
+}
+
+// animateCard "moves" (sequentially draw on screen) a card sprite `cardSpr` from a `src` (x, y, degrees) to a `dest` (x, y, degrees) in `duration` milliseconds
+function animateCard(cardSpr, src, dest, duration) {
+	const startTime = performance.now();
+
+	function step(now) {
+		const elapsed = now - startTime;
+		const t = Math.min(elapsed / duration, 1); // 0 → 1
+		// Linear interpolation
+		const cardPos = {
+			x:src.x + (dest.x - src.x) * t,
+			y:src.y + (dest.y - src.y) * t,
+			degrees:src.degrees + (dest.degrees - src.degrees) * t
+		};
+		// draw function
+		drawCard(cardSpr, cardPos, cardPos.degrees);
+		// recursion
+		if (t < 1) { requestAnimationFrame(step); }
+	}
+	// start the animation
+	requestAnimationFrame(step);
+}
+
+// blinkPlayer blink player hp cards for duration in ms
+function blinkPlayer(player, duration) {
+	for (let t = 0; t < duration; t+=100) {
+		setTimeout(() => player.showHp = !player.showHp, t);
+		setTimeout(() => console.log("blink"), t);
+	}
 }
 
 // draw player box
@@ -631,54 +683,53 @@ let render=function() {
 				} else if (GAMESTATE === gamestates['action:charge']) {
 					drawChargeActionOnCanvas();
 				}
+				ctx.fillText("Which knight ?", discardPilePos.x-150, discardPilePos.y+20);
 			}
 			
 			// draw players
 			for (let p = 0; p < players.length; p++) {
 				if(!isPlayerDead(players[p])) {
 					// Show a colored box around the active player, or all players if we have to choose a player for an action
-					if(p === activePlayerIndex || (GAMESTATE >= gamestates['action:attack'] && GAMESTATE <= gamestates['action:charge'] && !showDrawPileTopCard)) {
-						drawPlayerBox(ctx, players[p]);
-					}
+					if(p === activePlayerIndex || (GAMESTATE >= gamestates['action:attack'] && GAMESTATE <= gamestates['action:charge'])) { drawPlayerBox(ctx, players[p]); }
 
 					// draw hp
-					let hpCardsPos = {x:players[p].box[0]+40, y:0};
-					hpCardsPos.y = (p % 2 === 0) ? players[p].box[1] + (200 - 10 - 78) : 10;
-					for (let hpCard = 0; hpCard < players[p].hp.length; hpCard++) {
-						const hpCardCoord = getSpriteCoordFor(players[p].hp[hpCard]);
-						hpCardsPos.x = hpCardsPos.x + hpCard*71.5;
-						drawCard(hpCardCoord,hpCardsPos);
+					if(players[p].showHp) {
+						let hpCardsPosOffset = {
+							x:players[p].hpCardsPos.x,
+							y:players[p].hpCardsPos.y
+						};
+						for (let hpCard = 0; hpCard < players[p].hp.length; hpCard++) {
+							const hpCardCoord = getSpriteCoordFor(players[p].hp[hpCard]);
+							hpCardsPosOffset.x = players[p].hpCardsPos.x + hpCard*71.5;
+							drawCard(hpCardCoord,hpCardsPosOffset);
+						}
 					}
 
 					// draw shield
-					let shieldCardPos = {x:players[p].box[0] + 40 + 65 - cardSizeOnScreen.width/2, y:0};
-					shieldCardPos.y = (p % 2 === 0) ? players[p].box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
 					const shieldCardCoord = getSpriteCoordFor(players[p].shield[0]);
-					drawCard(shieldCardCoord, shieldCardPos, 90);
+					drawCard(shieldCardCoord, players[p].shieldCardPos, 90);
 					
 					// draw charge
 					if (players[p].charge.length > 0) {
-						let chargeCardPos = {x:players[p].box[0] + 40 + 65 + 65 + 10, y:0};
-						chargeCardPos.y = (p % 2 === 0) ? players[p].box[1] + (200 - 10 - 78 - 10 - 78) : 10 + (78 + 10);
 						// if the active player is attacking
 						if (GAMESTATE === gamestates['action:attack'] && showDrawPileTopCard && p === activePlayerIndex) {
 							// showing charges in a cascade
 							for (let c = 0; c < players[p].charge.length; c++) {
 								let chargeSpr = getSpriteCoordFor(players[p].charge[c]);
+								let chargeCascade = {x:players[p].chargeCardPos.x, y:players[p].chargeCardPos.y};
 								let chargeCascadeOffset = c*26;
-								let chargeCascade = {x:chargeCardPos.x, y:chargeCardPos.y};
 								chargeCascade.y += (p % 2 === 0) ? chargeCascadeOffset : (-1)*chargeCascadeOffset;
 								drawCard(chargeSpr, chargeCascade);
 							}
 						} else {
 							// show a face down card with the number of charges written in a corner
-							drawCard(cardFaceDown, chargeCardPos);
+							drawCard(cardFaceDown, players[p].chargeCardPos);
 							ctx.fillStyle = "goldenrod";
-							ctx.fillRect(chargeCardPos.x-2, chargeCardPos.y-2, 29, 29);
+							ctx.fillRect(players[p].chargeCardPos.x-2, players[p].chargeCardPos.y-2, 29, 29);
 							ctx.fillStyle = "white";
-							ctx.fillRect(chargeCardPos.x, chargeCardPos.y, 25, 25);
+							ctx.fillRect(players[p].chargeCardPos.x, players[p].chargeCardPos.y, 25, 25);
 							ctx.fillStyle = "black";
-							ctx.fillText(players[p].charge.length, chargeCardPos.x+7, chargeCardPos.y+20);
+							ctx.fillText(players[p].charge.length, players[p].chargeCardPos.x+7, players[p].chargeCardPos.y+20);
 						}
 					}
 				}
@@ -697,5 +748,7 @@ let main = function () {
 // Cross-browser support for requestAnimationFrame
 let w = window;
 requestAnimationFrame = w.requestAnimationFrame || w.webkitRequestAnimationFrame || w.msRequestAnimationFrame || w.mozRequestAnimationFrame;
+
+initGame(2); // test purposes
 
 main();
