@@ -117,6 +117,7 @@ function Player(playerName = "") {
 	this.hpCardsPos = {};
 	this.shield = [];
 	this.shieldCardPos = {};
+	this.showCharge = true;
 	this.charge = [];
 	this.chargeCardPos = {};
 	this.box = [];
@@ -282,7 +283,7 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 	const shieldValue = getCardValue(defendingPlayer.shield[0]);
 
 	let totalAnimationDuration = 0;
-	// ## ANIMATION 1 ##
+	// ## ANIMATION 1-1 ##
 	// move the top card in front of defending player shield
 	const topCardSpr = getSpriteCoordFor(drawPile[0]);
 	let attackAnimationPos = {
@@ -293,7 +294,23 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 	animateCard(topCardSpr, drawEffetPos, attackAnimationPos, 200);
 	totalAnimationDuration += 200;
 
-	// ## ANIMATION 2-2 ##
+	// ## ANIMATION 1-2 ##
+	// bring attacking player's charges in front of defending player's shield
+	for (let c = 0; c < attackingPlayer.charge.length; c ++) {
+		let chargeCardPos = {
+			x: defendingPlayer.box[0] + 80 + c*10,
+			y: (defendingPlayer.box[3]<300) ? defendingPlayer.box[3]-75 : defendingPlayer.box[1]+25,
+			degrees: 0
+		};
+		let chargeCardSpr = getSpriteCoordFor(attackingPlayer.charge[c]);
+		setTimeout(() => animateCard(chargeCardSpr, attackingPlayer.chargeCardPos, chargeCardPos, 200), totalAnimationDuration + 100*(1+c));
+	}
+	if (attackingPlayer.charge.length > 0) {
+		totalAnimationDuration += 100 * (attackingPlayer.charge.length - 1);
+		setTimeout(() => attackingPlayer.showCharge = false, totalAnimationDuration);
+	}
+
+	// ## ANIMATION 2-1 ##
 	// the attack card bounces from the shield, a bit tilted
 	// attackBounceAnimationPos, the position of the tilted card
 	let attackBounceAnimationPos = {
@@ -313,6 +330,8 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 		const totalHp = getTotal(defendingPlayer.hp);
 		const remainingHp = Math.max(0, totalHp - losingPoints);
 
+		// ## ANIMATION 2-2 ##
+		// Blink defending player's hp
 		setTimeout(() => blinkPlayer(defendingPlayer, 400), totalAnimationDuration);
 		totalAnimationDuration += 400;
 
@@ -336,8 +355,8 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 						x:defendingPlayer.hpCardsPos.x + i*71.5,
 						y:defendingPlayer.hpCardsPos.y
 					};
-					animateCard(lostHpCardSpr, lostHpCardPos, discardPile, 200);
-					totalAnimationDuration += 200;
+					//animateCard(lostHpCardSpr, lostHpCardPos, discardPile, 200);
+					//totalAnimationDuration += 200;
 					setTimeout(() => moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[i]), totalAnimationDuration);
 					break;
 				}
@@ -350,9 +369,9 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 						x:defendingPlayer.hpCardsPos.x + hpCard*71.5,
 						y:defendingPlayer.hpCardsPos.y
 					};
-					let hpCardSpr = getSpriteCoordFor(defendingPlayer.hp[hpCard]);
-					setTimeout(() => animateCard(hpCardSpr, hpCardsPosOffset, discardPilePos, 200), totalAnimationDuration);
-					totalAnimationDuration += 200;
+					//let hpCardSpr = getSpriteCoordFor(defendingPlayer.hp[hpCard]);
+					//setTimeout(() => animateCard(hpCardSpr, hpCardsPosOffset, discardPilePos, 200), totalAnimationDuration);
+					//totalAnimationDuration += 200;
 					setTimeout(() => moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[hpCard]), totalAnimationDuration);
 				}
 				replacementValue = remainingHp;
@@ -386,31 +405,47 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 					x:defendingPlayer.hpCardsPos.x + c*71.5,
 					y:defendingPlayer.hpCardsPos.y
 				};
-				animateCard(replacementCardSpr, discardPilePos, replacementCardPos, 200);
-				totalAnimationDuration += 200;
+				//animateCard(replacementCardSpr, discardPilePos, replacementCardPos, 200);
+				//totalAnimationDuration += 200;
 				setTimeout(() => moveCard(replacementCards[c][0], defendingPlayer.hp, replacementCards[c][1]), totalAnimationDuration);
 			}
 
 			addLogEntry(defendingPlayer.name + " has lost " + losingPoints + " points", "ATTACK");
 		}
 	} else {
+		// add bounce card animation duration if not added after defending player hp blink
+		totalAnimationDuration += 400;
 		addLogEntry(defendingPlayer.name + " stood still !", "ATTACK");
 	}
 
-	// discarding all charges
-	while(attackingPlayer.charge.length > 0) {
-		setTimeout(() => moveCard(attackingPlayer.charge, discardPile), totalAnimationDuration);
-	}
 
-	// defending player looses all their charges on an attack
-	while(defendingPlayer.charge.length > 0) {
+	// ## ANIMATION 3-1 ##
+	// defending player looses all their charges on an attack, they are discarded
+	for (let c = 0; c < defendingPlayer.charge.length; c ++) {
 		let chargeCardSpr = getSpriteCoordFor(defendingPlayer.charge[0]);
-		animateCard(chargeCardSpr, defendingPlayer.chargeCardPos, discardPilePos, 200);
-		totalAnimationDuration += 200;
-		setTimeout(() => moveCard(defendingPlayer.charge, discardPile), totalAnimationDuration);
+		setTimeout(() => animateCard(chargeCardSpr, defendingPlayer.chargeCardPos, discardPilePos, 200), totalAnimationDuration + 100 *(c+1));
+	}
+	if (defendingPlayer.charge.length > 0) {
+		totalAnimationDuration += 100*(defendingPlayer.charge.length - 1);
+		while (defendingPlayer.charge.length > 0) setTimeout(() => moveCard(defendingPlayer.charge, discardPile), totalAnimationDuration);
 	}
 
-	// ## ANIMATION 3 ##
+	// ## ANIMATION 3-2 ##
+	// discarding all attacking player's charges
+	for (let c = attackingPlayer.charge.length - 1; c >= 0; c--) {
+		let chargeCardSpr = getSpriteCoordFor(attackingPlayer.charge[c]);
+		let chargeCardPos = {
+			x: defendingPlayer.box[0] + 80 + c*10,
+			y: (defendingPlayer.box[3]<300) ? defendingPlayer.box[3]-75 : defendingPlayer.box[1]+25,
+			degrees: 0
+		};
+		setTimeout(() => animateCard(chargeCardSpr, chargeCardPos, discardPile, 200), totalAnimationDuration);
+		totalAnimationDuration += 200;
+	}
+	while(attackingPlayer.charge.length > 0) { setTimeout(() => moveCard(attackingPlayer.charge, discardPile), totalAnimationDuration); }
+	setTimeout(() => attackingPlayer.showCharge = true, totalAnimationDuration);
+
+	// ## ANIMATION 3-3 ##
 	// the attack card is moved to the discard pile
 	setTimeout(() => animateCard(topCardSpr, attackBounceAnimationPos, discardPilePos, 200), totalAnimationDuration);
 	totalAnimationDuration += 200;
@@ -763,7 +798,7 @@ let render=function() {
 					}
 
 					// draw charge
-					if (players[p].charge.length > 0) {
+					if (players[p].showCharge && players[p].charge.length > 0) {
 						// if the active player is attacking
 						if (GAMESTATE === gamestates['action:attack'] && showDrawPileTopCard && p === activePlayerIndex) {
 							// showing charges in a cascade
