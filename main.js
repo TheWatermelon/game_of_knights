@@ -286,8 +286,9 @@ function chargeKnight(player) {
 	totalAnimationDuration += 200;
 	// add the first card of drawPile to the player's charges
 	setTimeout(() => {
-		player.showCharge.push("false");
 		moveCard(drawPile, player.charge);
+		player.showCharge.push("false");
+		console.log(getCardName(player.charge[0]) + " " + player.showCharge[0]);
 	}, totalAnimationDuration);
 
 	addLogEntry("Charging " + player.name, "CHARGE");
@@ -311,7 +312,7 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 	// move the top card in front of defending player shield
 	const topCardSpr = getSpriteCoordFor(drawPile[0]);
 	defendingPlayer.attackCardPos = getAttackCardPosFor(defendingPlayer);
-	console.log(totalAnimationDuration + "> ANIMATION 1-1 : top card in front of defending shield");
+	//console.log(totalAnimationDuration + "> ANIMATION 1-1 : top card in front of defending shield");
 	animateCard(topCardSpr, topCardPos, defendingPlayer.attackCardPos, 200);
 	totalAnimationDuration += 200;
 	setTimeout(() => {
@@ -321,24 +322,27 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 
 	// ## ANIMATION 1-2 ##
 	// bring attacking player's charges in front of defending player's shield
-	console.log(totalAnimationDuration + "> ANIMATION 1-2 : attacking charges in front of defending shield");
+	//console.log(totalAnimationDuration + "> ANIMATION 1-2 : attacking charges in front of defending shield");
 	for (let c = 0; c < attackingPlayer.charge.length; c ++) {
 		let chargeCardPos = {
 			x: defendingPlayer.box[0] + 100 + c*15,
 			y: (defendingPlayer.box[3]<300) ? defendingPlayer.box[3]-75 : defendingPlayer.box[1]-15,
 			degrees: 0
 		};
+		let chargeCard = attackingPlayer.charge[c];
 		let chargeCardSpr = getSpriteCoordFor(attackingPlayer.charge[c]);
 		setTimeout(() => animateCard(chargeCardSpr, attackingPlayer.chargeCardPos, chargeCardPos, 200), totalAnimationDuration + 100*(1+c));
-		//setTimeout(() => attackingPlayer.showCharge[c] = true, totalAnimationDuration + 4000 + 100*(c+1));
+		setTimeout(() => {
+			attackingPlayer.showCharge[c] = true;
+			//console.log("showing card: " + getCardName(chargeCard + " > " + chargeCard));
+		}, totalAnimationDuration + 200 + 100*(c+1));
 	}
 	if (attackingPlayer.charge.length > 0) {
 		totalAnimationDuration += 200 + 100 * (attackingPlayer.charge.length - 1);
 	}
 
 	// wait a bit before showing the attack result
-	totalAnimationDuration += 500;
-	//setTimeout(() => GAMESTATE = gamestates["view:table"], totalAnimationDuration);
+	totalAnimationDuration += 700;
 
 	// ## ANIMATION 2-1 ##
 	// the attack card bounces from the shield, a bit tilted
@@ -350,7 +354,7 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 		y:(defendingPlayer.box[3] < 300) ? attackAnimationPos.y + 50 : attackAnimationPos.y - 50,
 		degrees:(defendingPlayer.box[3] < 300) ? 45 : -45
 	};
-	console.log(totalAnimationDuration + "> ANIMATION 2-1 : bounce top card");
+	//console.log(totalAnimationDuration + "> ANIMATION 2-1 : bounce top card");
 	setTimeout(() => {
 		attackingPlayer.showAttack = false;
 		animateCard(topCardSpr, attackAnimationPos, attackBounceAnimationPos, 400);
@@ -368,21 +372,17 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 
 		// ## ANIMATION 2-2 ##
 		// Blink defending player's hp
-		console.log(totalAnimationDuration + "> ANIMATION 2-2 : blink defending player hp");
+		//console.log(totalAnimationDuration + "> ANIMATION 2-2 : blink defending player hp");
 		setTimeout(() => blinkPlayer(defendingPlayer, 400), totalAnimationDuration);
 		totalAnimationDuration += 400;
 
 		// if remainingHp is zero, that player loses the game, discarding their cards
 		if (remainingHp <= 0) {
 			let emptyPlayerDuration = 0;
-			console.log(totalAnimationDuration + "> discard all defending player's cards");
+			//console.log(totalAnimationDuration + "> discard all defending player's cards");
 			setTimeout(() => {
 				addLogEntry("DEAD: " + defendingPlayer.name + " has lost! Their cards are discarded.", "INFO");
 				totalAnimationDuration += emptyPlayer(defendingPlayer);
-				if (hasPlayerWon(attackingPlayer)) {
-					addLogEntry(attackingPlayer.name + " has won the game !");
-					GAMESTATE = gamestates['menu:game over']; 
-				}
 			}, totalAnimationDuration);
 		} else {
 			// try replacing only one card to match the new hp
@@ -462,24 +462,24 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 
 	// ## ANIMATION 3-1 ##
 	// defending player looses all their charges on an attack, they are discarded
-	console.log(totalAnimationDuration + "> ANIMATION 3-1 : discarding defending charges");
+	//console.log(totalAnimationDuration + "> ANIMATION 3-1 : discarding defending charges");
 	for (let c = 0; c < defendingPlayer.charge.length; c ++) {
 		let chargeCardSpr = getSpriteCoordFor(defendingPlayer.charge[0]);
 		setTimeout(() => animateCard(chargeCardSpr, defendingPlayer.chargeCardPos, discardPilePos, 200), totalAnimationDuration + 100 *(c+1));
 	}
 	if (defendingPlayer.charge.length > 0) {
-		totalAnimationDuration += 100*(defendingPlayer.charge.length - 1);
+		totalAnimationDuration += 200 + 100*(defendingPlayer.charge.length - 1);
 		setTimeout(() => {
 			for (let c = 0; c < defendingPlayer.charge.length; c ++) {
-				defendingPlayer.showCharge.pop();
 				moveCard(defendingPlayer.charge, discardPile);
+				defendingPlayer.showCharge.pop();
 			}
 		}, totalAnimationDuration);
 	}
 
 	// ## ANIMATION 3-2 ##
 	// discarding all attacking player's charges
-	console.log(totalAnimationDuration + "> ANIMATION 3-2 : discarding attacking charges");
+	//console.log(totalAnimationDuration + "> ANIMATION 3-2 : discarding attacking charges");
 	for (let c = attackingPlayer.charge.length - 1; c >= 0; c--) {
 		let chargeCardSpr = getSpriteCoordFor(attackingPlayer.charge[c]);
 		let chargeCardPos = {
@@ -495,11 +495,11 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 			attackingPlayer.charge.pop();
 			moveCard(attackingPlayer.charge, discardPile);
 		}
-	}, totalAnimationDuration); 
+	}, totalAnimationDuration+200); 
 
 	// ## ANIMATION 3-3 ##
 	// the attack card is moved to the discard pile
-	console.log(totalAnimationDuration + "> ANIMATION 3-3 : top card into discard pile");
+	//console.log(totalAnimationDuration + "> ANIMATION 3-3 : top card into discard pile");
 	setTimeout(() => {
 		animateCard(topCardSpr, attackBounceAnimationPos, discardPilePos, 200);
 	}, totalAnimationDuration);
@@ -525,8 +525,8 @@ function emptyPlayer(player) {
 	}
 	setTimeout(() => {
 		while (player.charge.length > 0) {
-			player.showCharge.pop();
 			moveCard(player.charge, discardPile);
+			player.showCharge.pop();
 		}
 	}, totalAnimationDuration);
 	
@@ -680,13 +680,10 @@ var click=function(event) {
 					} else if (GAMESTATE === gamestates['action:charge']) {	
 						totalAnimationDuration = chargeKnight(players[selectedPlayerIndex]);
 					}
-					console.log(totalAnimationDuration + "> action done, changing active player");
+					//console.log(totalAnimationDuration + "> action done, changing active player");
 					setTimeout(() => {
 						selectedPlayerIndex = -1;
-						if (hasPlayerWon(players[activePlayerIndex])) { 
-							addLogEntry(players[activePlayerIndex].name + " has won the game !");
-							GAMESTATE = gamestates['menu:game over']; 
-						} else {
+						if (!hasPlayerWon(players[activePlayerIndex])) { 
 							nextPLayer();
 							GAMESTATE = gamestates['view:table'];
 						}
@@ -696,12 +693,6 @@ var click=function(event) {
 				}
 			}
 		}
-	} else if (GAMESTATE === gamestates["view:attack"]) { 
-		let totalAnimationDuration = attackKnight(players[activePlayerIndex], players[selectedPlayerIndex]);
-		setTimeout(() => {
-			selectedPlayerIndex = -1;
-			
-		}, totalAnimationDuration);
 	}
 }
 // make the canvas clickable
@@ -740,40 +731,6 @@ function blinkPlayer(player, duration) {
 	for (let t = 0; t < duration; t+=100) {
 		setTimeout(() => player.showHp = !player.showHp, t);
 	}
-}
-
-// showAttackValue : animations before the attack to show the attack cards in front of the defending shield
-function showAttackValue(attackingPlayer, defendingPlayer) {
-	let totalAnimationDuration = 0;
-	// ## ANIMATION 1-1 ##
-	// move the top card in front of defending player shield
-	const topCardSpr = getSpriteCoordFor(drawPile[0]);
-	defendingPlayer.attackCardPos = getAttackCardPosFor(defendingPlayer);
-	console.log(totalAnimationDuration + "> ANIMATION 1-1 : top card in front of defending shield");
-	animateCard(topCardSpr, topCardPos, defendingPlayer.attackCardPos, 200);
-	totalAnimationDuration += 200;
-	setTimeout(() => attackingPlayer.showAttack = true, totalAnimationDuration);
-
-	// ## ANIMATION 1-2 ##
-	// bring attacking player's charges in front of defending player's shield
-	console.log(totalAnimationDuration + "> ANIMATION 1-2 : attacking charges in front of defending shield");
-	for (let c = 0; c < attackingPlayer.charge.length; c ++) {
-		let chargeCardPos = {
-			x: defendingPlayer.box[0] + 100 + c*10,
-			y: (defendingPlayer.box[3]<300) ? defendingPlayer.box[3]-75 : defendingPlayer.box[1]-15,
-			degrees: 0
-		};
-		let chargeCardSpr = getSpriteCoordFor(attackingPlayer.charge[c]);
-		setTimeout(() => animateCard(chargeCardSpr, attackingPlayer.chargeCardPos, chargeCardPos, 200), totalAnimationDuration + 100*(1+c));
-	}
-	if (attackingPlayer.charge.length > 0) {
-		totalAnimationDuration += 100 * (attackingPlayer.charge.length - 1);
-		setTimeout(() => attackingPlayer.showCharge = false, totalAnimationDuration);
-		totalAnimationDuration += 400;
-	}
-
-	// keep showing attack value until player click
-	setTimeout(() => GAMESTATE = gamestates["view:attack"], totalAnimationDuration-260);
 }
 
 // draw player box
@@ -924,7 +881,8 @@ let render=function() {
 							let defendingPlayer = players[selectedPlayerIndex];
 							
 							for (let c = 0; c < attackingPlayer.charge.length; c ++) {
-								if (attackingPlayer.showCharge[c]) {
+								console.log(getCardName(attackingPlayer.charge[c]) + " " + attackingPlayer.showCharge[c]);
+								if (attackingPlayer.showCharge[c] === true) {
 									let chargeCardPos = {
 										x: defendingPlayer.box[0] + 100 + c*15,
 										y: (defendingPlayer.box[3]<300) ? defendingPlayer.box[3]-75 : defendingPlayer.box[1]-15,
@@ -953,16 +911,17 @@ let render=function() {
 
 // The main game loop
 let main = function () {
-	// run the render function
-	render();
-
 	for (let p = 0; p < players.length; p++) {
 		if (hasPlayerWon(players[p])) { 
 			addLogEntry(players[p].name + " has won the game !");
 			GAMESTATE = gamestates['menu:game over'];
+			while (players.length > 0) { players.pop(); }
 			break;
 		}
 	}
+
+	// run the render function
+	render();
 
 	// Request to do this again ASAP
 	requestAnimationFrame(main);
