@@ -69,7 +69,6 @@ const gamestates = {
 	"menu:main menu":40,
 	"menu:game over":41
 };
-let GAMESTATE = gamestates["menu:main menu"];
 
 // Fisher-Yates Shuffle
 function shuffle(array) {
@@ -288,7 +287,7 @@ function chargeKnight(player) {
 	setTimeout(() => {
 		moveCard(drawPile, player.charge);
 		player.showCharge.push("false");
-		console.log(getCardName(player.charge[0]) + " " + player.showCharge[0]);
+		//console.log(getCardName(player.charge[0]) + " " + player.showCharge[0]);
 	}, totalAnimationDuration);
 
 	addLogEntry("Charging " + player.name, "CHARGE");
@@ -463,39 +462,40 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 	// ## ANIMATION 3-1 ##
 	// defending player looses all their charges on an attack, they are discarded
 	//console.log(totalAnimationDuration + "> ANIMATION 3-1 : discarding defending charges");
-	for (let c = 0; c < defendingPlayer.charge.length; c ++) {
-		let chargeCardSpr = getSpriteCoordFor(defendingPlayer.charge[0]);
-		setTimeout(() => animateCard(chargeCardSpr, defendingPlayer.chargeCardPos, discardPilePos, 200), totalAnimationDuration + 100 *(c+1));
-	}
 	if (defendingPlayer.charge.length > 0) {
-		totalAnimationDuration += 200 + 100*(defendingPlayer.charge.length - 1);
-		setTimeout(() => {
-			for (let c = 0; c < defendingPlayer.charge.length; c ++) {
-				moveCard(defendingPlayer.charge, discardPile);
-				defendingPlayer.showCharge.pop();
-			}
-		}, totalAnimationDuration);
+		setTimeout(() => animateCard(cardFaceDown, defendingPlayer.chargeCardPos, discardPilePos, 200), totalAnimationDuration);
+		totalAnimationDuration += 200;
+		while (defendingPlayer.charge.length > 0) {
+			moveCard(defendingPlayer.charge, discardPile);
+			defendingPlayer.showCharge.pop();
+		}
 	}
 
 	// ## ANIMATION 3-2 ##
 	// discarding all attacking player's charges
 	//console.log(totalAnimationDuration + "> ANIMATION 3-2 : discarding attacking charges");
-	for (let c = attackingPlayer.charge.length - 1; c >= 0; c--) {
-		let chargeCardSpr = getSpriteCoordFor(attackingPlayer.charge[c]);
-		let chargeCardPos = {
-			x: defendingPlayer.box[0] + 80 + c*10,
-			y: (defendingPlayer.box[3]<300) ? defendingPlayer.box[3]-75 : defendingPlayer.box[1]-15,
-			degrees: 0
-		};
-		setTimeout(() => animateCard(chargeCardSpr, chargeCardPos, discardPile, 200), totalAnimationDuration);
-		totalAnimationDuration += 200;
-	}
-	setTimeout(() => {
-		for (let c = 0; c < attackingPlayer.charge.length; c++) { 
-			attackingPlayer.charge.pop();
-			moveCard(attackingPlayer.charge, discardPile);
+	if (attackingPlayer.charge.length > 0) {
+		for (let c = 0; c < attackingPlayer.charge.length; c++) {
+			let reverseIndex = attackingPlayer.charge.length - 1 - c;
+			let chargeCardSpr = getSpriteCoordFor(attackingPlayer.charge[reverseIndex]);
+			let chargeCardPos = {
+				x: defendingPlayer.box[0] + 80 + reverseIndex*10,
+				y: (defendingPlayer.box[3]<300) ? defendingPlayer.box[3]-75 : defendingPlayer.box[1]-15,
+				degrees: 0
+			};
+			setTimeout(() => {
+				attackingPlayer.showCharge[reverseIndex] = false;			
+				animateCard(chargeCardSpr, chargeCardPos, discardPile, 200);
+			}, totalAnimationDuration);
+			totalAnimationDuration += 200;
 		}
-	}, totalAnimationDuration+200); 
+		setTimeout(() => {
+			while (attackingPlayer.charge.length > 0) { 
+				attackingPlayer.charge.pop();
+				moveCard(attackingPlayer.charge, discardPile);
+			}
+		}, totalAnimationDuration);
+	}
 
 	// ## ANIMATION 3-3 ##
 	// the attack card is moved to the discard pile
@@ -726,6 +726,17 @@ function animateCard(cardSpr, src, dest, duration) {
 	requestAnimationFrame(step);
 }
 
+function animateCardAsync(cardSpr, src, dest, duration) {
+	return new Promise(resolve => {
+		animateCard(cardSpr, src, dest, duration);
+		setTimeout(resolve, duration);
+	});
+}
+
+function pause(ms) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // blinkPlayer blink player hp cards for duration in ms
 function blinkPlayer(player, duration) {
 	for (let t = 0; t < duration; t+=100) {
@@ -881,7 +892,7 @@ let render=function() {
 							let defendingPlayer = players[selectedPlayerIndex];
 							
 							for (let c = 0; c < attackingPlayer.charge.length; c ++) {
-								console.log(getCardName(attackingPlayer.charge[c]) + " " + attackingPlayer.showCharge[c]);
+								//console.log(getCardName(attackingPlayer.charge[c]) + " " + attackingPlayer.showCharge[c]);
 								if (attackingPlayer.showCharge[c] === true) {
 									let chargeCardPos = {
 										x: defendingPlayer.box[0] + 100 + c*15,
@@ -930,6 +941,7 @@ let main = function () {
 let w = window;
 requestAnimationFrame = w.requestAnimationFrame || w.webkitRequestAnimationFrame || w.msRequestAnimationFrame || w.mozRequestAnimationFrame;
 
-//initGame(3); // test purposes
+let GAMESTATE = gamestates["view:table"];
+initGame(3); // test purposes
 
 main();
