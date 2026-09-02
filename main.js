@@ -564,7 +564,7 @@ function hasPlayerWon(player=players[activePlayerIndex]) {
 }
 
 // switch to the next player
-function nextPLayer() {
+function nextPlayer() {
 	// cycle through players
 	activePlayerIndex = (activePlayerIndex + 1) % players.length;
 	// skip "dead" player
@@ -630,7 +630,14 @@ function isPointInBox(point, box) {
 
 // action on click
 var click=function(event) {
-	const clickPoint = [event.clientX, event.clientY];
+	const rect = c.getBoundingClientRect();
+
+	const clickPoint = [
+		(event.clientX - rect.left) *
+            (c.width / rect.width),
+		(event.clientY - rect.top) *
+            (c.height / rect.height)
+	];
 	// menu:main menu
 	if (GAMESTATE === gamestates['menu:main menu']) {
 		// Check if we click on one of the boxes with the number of players
@@ -684,7 +691,7 @@ var click=function(event) {
 					setTimeout(() => {
 						selectedPlayerIndex = -1;
 						if (!hasPlayerWon(players[activePlayerIndex])) { 
-							nextPLayer();
+							nextPlayer();
 							GAMESTATE = gamestates['view:table'];
 						}
 					}, totalAnimationDuration);
