@@ -491,7 +491,6 @@ function attackKnight(attackingPlayer, defendingPlayer) {
 		}
 		setTimeout(() => {
 			while (attackingPlayer.charge.length > 0) { 
-				attackingPlayer.charge.pop();
 				moveCard(attackingPlayer.charge, discardPile);
 			}
 		}, totalAnimationDuration);
