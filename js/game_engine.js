@@ -11,33 +11,6 @@ const GameState = Object.freeze({
     GAME_OVER: "menu:game over"
 });
 
-const DECK = Object.freeze(CardManager.createDeck());
-
-class Player {
-    constructor(name, color) {
-        this.name = name;
-
-        this.hp = []; // health points, between 1 and 3 cards
-        this.shield = []; // shield, actually one card
-        this.charge = []; // charge, [0;x] cards
-    }
-
-    // getHpTotal: returns the total value of this player hp cards
-    getHpTotal() {
-        return CardManager.getTotal(this.hp);
-    }
-
-    // hasCharge: return true if this player has at least one charge
-    hasCharge() {
-        return (this.charge.length > 0);
-    }
-
-    // isDead: returns true if this player has no hp
-    isDead() {
-        return this.getHpTotal() === 0;
-    }
-}
-
 const CardManager = {
     // createDeck: creates a deck of 52 cards as a Map
     createDeck() {
@@ -163,10 +136,37 @@ const CardManager = {
 
     // findReplacementCardFor: search discardPile and drawPile for a card matching the value
     findReplacementCardFor(value, drawPile, discardPile) {
-        let replacementCard = findReplacementCardIn(discardPile, value);
-        return replacementCard < 0 ? [drawPile, findReplacementCardIn(drawPile, value)] : [discardPile, replacementCard];
+        let replacementCard = this.findReplacementCardIn(discardPile, value);
+        return replacementCard < 0 ? [drawPile, this.findReplacementCardIn(drawPile, value)] : [discardPile, replacementCard];
     }
 };
+
+const DECK = Object.freeze(CardManager.createDeck());
+
+class Player {
+    constructor(name, color) {
+        this.name = name;
+
+        this.hp = []; // health points, between 1 and 3 cards
+        this.shield = []; // shield, actually one card
+        this.charge = []; // charge, [0;x] cards
+    }
+
+    // getHpTotal: returns the total value of this player hp cards
+    getHpTotal() {
+        return CardManager.getTotal(this.hp);
+    }
+
+    // hasCharge: return true if this player has at least one charge
+    hasCharge() {
+        return (this.charge.length > 0);
+    }
+
+    // isDead: returns true if this player has no hp
+    isDead() {
+        return this.getHpTotal() === 0;
+    }
+}
 
 class Game {
     constructor() {        
@@ -196,9 +196,9 @@ class Game {
             let newP = new PlayerOnCanvas(playersName[p], PLAYERS_COLORS[p], p);
             
             // distribute three cards to this player
-            CardManager.move(drawPile, newP.hp);
-            CardManager.move(drawPile, newP.hp);
-            CardManager.move(drawPile, newP.shield);
+            CardManager.move(this.drawPile, newP.hp);
+            CardManager.move(this.drawPile, newP.hp);
+            CardManager.move(this.drawPile, newP.shield);
             // add the new player to players list
             this.players.push(newP);
         }
@@ -261,34 +261,23 @@ class Game {
                 // try replacing only one card to match the new hp
                 let replacementValue = 0;
                 for (let i = 0; i < defendingPlayer.hp.length; i++) {
-                    replacementValue = getCardValue(defendingPlayer.hp[i]) - losingPoints;
+                    replacementValue = CardManager.getValue(defendingPlayer.hp[i]) - losingPoints;
 
                     // if replacementValue can be a card
                     if (replacementValue >= 1 && replacementValue <= 13) {
                         // discard one card from defending player hp
-                        let lostHpCardSpr = getSpriteCoordFor(defendingPlayer.hp[i]);
                         let lostHpCardPos = {
                             x:defendingPlayer.hpCardsPos.x + i*71.5,
                             y:defendingPlayer.hpCardsPos.y
                         };
-                        //animateCard(lostHpCardSpr, lostHpCardPos, discardPile, 200);
-                        //totalAnimationDuration += 200;
-                        setTimeout(() => moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[i]), totalAnimationDuration);
                         break;
                     }
                 }
                 // one card isn't enough
                 if (replacementValue <= 0) {
                     // discard all defendingPlayer hp
-                    for (let hpCard = defendingPlayer.hp.length - 1; hpCard >= 0; hpCard--) {
-                        let hpCardsPosOffset = {
-                            x:defendingPlayer.hpCardsPos.x + hpCard*71.5,
-                            y:defendingPlayer.hpCardsPos.y
-                        };
-                        //let hpCardSpr = getSpriteCoordFor(defendingPlayer.hp[hpCard]);
-                        //setTimeout(() => animateCard(hpCardSpr, hpCardsPosOffset, discardPilePos, 200), totalAnimationDuration);
-                        //totalAnimationDuration += 200;
-                        setTimeout(() => moveCard(defendingPlayer.hp, discardPile, defendingPlayer.hp[hpCard]), totalAnimationDuration);
+                    while (defendingPlayer.hp.length > 0) {
+                        CardManager.move(defendingPlayer.hp, this.discardPile);
                     }
                     replacementValue = remainingHp;
                 }
@@ -296,13 +285,13 @@ class Game {
                 // find replacement card(s)
                 let replacementCards = [];
                 // search for a card in discardPile / drawPile
-                const replacementCard = findReplacementCardFor(replacementValue);
+                const replacementCard = CardManager.findReplacementCardFor(replacementValue, this.drawPile, this.discardPile);
                 // replacement card hasn't been found in either discardPile or drawPile, we need to search for a pair of cards
                 if (replacementCard[1] < 0) {
-                    const pairs = generatePairsFrom(replacementValue);
+                    const pairs = CardManager.generatePairsFrom(replacementValue);
                     for (let p = 0; p < pairs.length; p++) {
-                        const firstCard = findReplacementCardFor(pairs[p]);
-                        const secondCard = findReplacementCardFor(pairs[p]);
+                        const firstCard = CardManager.findReplacementCardFor(pairs[p], this.drawPile, this.discardPile);
+                        const secondCard = CardManager.findReplacementCardFor(pairs[p], this.drawPile, this.discardPile);
                         // this pair is a fit replacement
                         if (firstCard[1] > 0 && secondCard[1] > 0) {
                             replacementCards.push(firstCard);
@@ -315,15 +304,8 @@ class Game {
                 }
                 
                 // add replacement card(s) to defendingPlayer hp
-                for (let c = 0; c < replacementCards.length; c++) {
-                    let replacementCardSpr = getSpriteCoordFor(replacementCards[c][1]);
-                    let replacementCardPos = {
-                        x:defendingPlayer.hpCardsPos.x + c*71.5,
-                        y:defendingPlayer.hpCardsPos.y
-                    };
-                    //animateCard(replacementCardSpr, discardPilePos, replacementCardPos, 200);
-                    //totalAnimationDuration += 200;
-                    setTimeout(() => moveCard(replacementCards[c][0], defendingPlayer.hp, replacementCards[c][1]), totalAnimationDuration);
+                while (replacementCards.length > 0) {
+                    CardManager.move(replacementCards, defendingPlayer.hp);
                 }
 
             }
@@ -345,7 +327,7 @@ class Game {
         // cycle through players
         this.activePlayerIndex = (this.activePlayerIndex + 1) % this.players.length;
         // skip "dead" player
-        while (CardManager.getTotal(this.getActivePlayer().hp) === 0) {
+        while (this.getActivePlayer().isDead()) {
             this.activePlayerIndex = (this.activePlayerIndex + 1) % this.players.length;
         }
     }

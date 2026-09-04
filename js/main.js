@@ -1,3 +1,4 @@
+/*
 // init canvas
 let c=document.getElementById('myCanvas');
 c.width = 800;
@@ -951,3 +952,25 @@ let GAMESTATE = gamestates["view:table"];
 initGame(3); // test purposes
 
 main();
+*/
+
+const game = new Game();
+const renderer = new Renderer(game);
+const input = new InputController(renderer, game);
+const animationManager = new AnimationManager();
+
+let previousTime = performance.now();
+
+function main(now) {
+    const deltaTime = now - previousTime;
+    previousTime = now;
+
+    animationManager.update(deltaTime);
+
+    renderer.render();
+    animationManager.draw(renderer);
+
+    requestAnimationFrame(main);
+}
+
+requestAnimationFrame(main);

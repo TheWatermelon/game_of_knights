@@ -11,13 +11,13 @@ class InputController {
     getCanvasPoint(event) {
         const rect = this.view.canvas.getBoundingClientRect();
 
-        return [
-            (event.clientX - rect.left) *
+        return {
+            x:(event.clientX - rect.left) *
                 (this.view.canvas.width / rect.width),
 
-            (event.clientY - rect.top) *
+            y:(event.clientY - rect.top) *
                 (this.view.canvas.height / rect.height)
-        ];
+        };
     }
 
     // check if a point {x,y} is in a box {x1, y1, x2, y2}
@@ -68,7 +68,7 @@ class InputController {
 		for (let b = 0; b < this.view.mainMenuScreenChoosePlayersBoxes.length; b++) {
 			if (this.isPointInBox(point, this.view.mainMenuScreenChoosePlayersBoxes[b])) {
 				// Init the game with 2-4 players depending on the box we clicked on
-				this.game.initGameFor(b+2);
+				this.game.initGameFor(b+2, ["Player 1", "Player 2", "Player 3", "Player 4"]);
 				// Show the game table
 				this.game.setState(GameState.TABLE);
 				return;
@@ -78,39 +78,41 @@ class InputController {
 
     // handleTableClick: show actions if we click on the draw pile
     handleTableClick(point) {
-        const drawPileBox = [
-            DRAW_PILE_POS.x,
-            DRAW_PILE_POS.y,
-            DRAW_PILE_POS.x + CARD_SIZE_CANVAS.width,
-            DRAW_PILE_POS.y + CARD_SIZE_CANVAS.height
-        ];
-		if (isPointInBox(point, drawPileBox)) this.game.setState(GameState.CHOOSE_ACTION);
+        const drawPileBox = {
+            x1: DRAW_PILE_POS.x,
+            y1: DRAW_PILE_POS.y,
+            x2: DRAW_PILE_POS.x + CARD_SIZE_CANVAS.width,
+            y2: DRAW_PILE_POS.y + CARD_SIZE_CANVAS.height
+        };
+		if (this.isPointInBox(point, drawPileBox)) {
+            this.game.setState(GameState.CHOOSE_ACTION);
+        }
     }
 
     // handleActionClick: trigger an action if we clicked on its icon
     handleActionClick(point) {
-        const attackBox = [
-            ATTACK_ICON_POS.x,
-            ATTACK_ICON_POS.y,
-            ATTACK_ICON_POS.x + ATTACK_SPR.w / 2 + 150,
-            ATTACK_ICON_POS.y + ATTACK_SPR.h / 2
-        ];
-		const changeShieldBox = [
-            SHIELD_ICON_POS.x,
-            SHIELD_ICON_POS.y,
-            SHIELD_ICON_POS.x + SHIELD_SPR.w / 2 + 200,
-            SHIELD_ICON_POS.y + SHIELD_SPR.h / 2
-        ];
-		const chargeBox = [
-            CHARGE_ICON_POS.x,
-            CHARGE_ICON_POS.y,
-            CHARGE_ICON_POS.x + CHARGE_SPR.w / 2 + 170,
-            CHARGE_ICON_POS.y + CHARGE_SPR.h / 2
-        ];
+        const attackBox = {
+            x1: ATTACK_ICON_POS.x,
+            y1: ATTACK_ICON_POS.y,
+            x2: ATTACK_ICON_POS.x + ATTACK_SPR.w / 2 + 150,
+            y2: ATTACK_ICON_POS.y + ATTACK_SPR.h / 2
+        };
+		const changeShieldBox = {
+            x1: SHIELD_ICON_POS.x,
+            y1: SHIELD_ICON_POS.y,
+            x2: SHIELD_ICON_POS.x + SHIELD_SPR.w / 2 + 200,
+            y2: SHIELD_ICON_POS.y + SHIELD_SPR.h / 2
+        };
+		const chargeBox = {
+            x1: CHARGE_ICON_POS.x,
+            y1: CHARGE_ICON_POS.y,
+            x2: CHARGE_ICON_POS.x + CHARGE_SPR.w / 2 + 170,
+            y2: CHARGE_ICON_POS.y + CHARGE_SPR.h / 2
+        };
 
 		if (this.isPointInBox(point, attackBox)) { this.game.setState(GameState.ATTACK); }
 		else if (this.isPointInBox(point, changeShieldBox)) { this.game.setState(GameState.SHIELD); }
-		else if (this.isPointInBox(clickPoint, chargeBox)) { this.game.setState(GameState.CHARGE); }
+		else if (this.isPointInBox(point, chargeBox)) { this.game.setState(GameState.CHARGE); }
     }
 
     // handleChoosePlayerClick: trigger an action based on the chosen player
@@ -119,7 +121,7 @@ class InputController {
 			if(!this.game.players[p].isDead()) {
 				const pBox = this.game.players[p].box;
 				// Click on a player
-				if (this.isPointInBox(clickPoint, pBox)) {
+				if (this.isPointInBox(point, pBox)) {
                     this.game.setSelectedPlayer(p);
 
 					switch (this.game.getState()) {
@@ -137,6 +139,7 @@ class InputController {
                     }
 
                     this.game.setSelectedPlayer(-1);
+                    this.game.setState(GameState.TABLE);
 				}
 			}
 		}
