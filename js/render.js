@@ -272,12 +272,13 @@ class Renderer {
 
     }
 
-    // show the rules of the game
+    // showHelp: show the rules of the game
     showHelp(show) {
         const rulesDiv = document.getElementById("rules");	
         rulesDiv.style.display = show ? "block" : "none";
     }
 
+	// drawPlayerBox: draw a colored rectangle around a player
     drawPlayerBox(player) {
         const playerSize = {
             x: player.box.x1,
@@ -302,4 +303,12 @@ class Renderer {
         };
         this.context.fillText(player.name, playerNamePos.x, playerNamePos.y);
     }
+
+	// draw attack action on canvas
+	drawAttackActionOnCanvas() {
+		this.context.drawImage(this.spr, ATTACK_SPR.x, ATTACK_SPR.y, ATTACK_SPR.w, ATTACK_SPR.h, ATTACK_ICON_POS.x, ATTACK_ICON_POS.y, Math.round(ATTACK_SPR.w*0.4), Math.round(ATTACK_SPR.h*0.4));
+		this.context.fillStyle = "black";
+		let attackTxt = (this.game.getState() === GameStates.CHOOSE) ? "Attack" : "Which knight ?";
+		this.context.fillText(attackTxt, ATTACK_ICON_POS.x + 50, ATTACK_ICON_POS.y + 30);
+	}
 }
