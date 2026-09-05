@@ -115,31 +115,73 @@ class InputController {
 		else if (this.isPointInBox(point, chargeBox)) { this.game.setState(GameState.CHARGE); }
     }
 
+    attackAction() {
+        const attackingPlayer = this.game.getActivePlayer();
+        const defendingPlayer = this.game.getSelectedPlayer();
+        const losingPoints = this.game.attackGoesThrough(attackingPlayer, defendingPlayer);
+        
+        if (losingPoints > 0) {
+            const remainingHp = this.game.getRemainingHpAfterAttack(defendingPlayer, losingPoints);
+            if (remainingHp > 0)  {
+                const cardsToChange = this.game.changeHpFor(defendingPlayer, losingPoints, remainingHp);
+                // discard old hp cards
+                for (let i = 0; i < cardsToChange["oldHp"].length; i++) {
+                    CardManager.move(cardsToChange["oldHp"][i][0], this.game.discardPile, cardsToChange["oldHp"][i][1]);
+                }
+                // put new hp cards into defendingPlayer hp
+                for (let j = 0; j < cardsToChange["newHp"].length; j++) {
+                    CardManager.move(cardsToChange["newHp"][j][0], defendingPlayer.hp, cardsToChange["newHp"][j][1]);
+                }
+            } else { // defendingPlayer lost all their hp
+                this.game.discardPlayerHp(defendingPlayer);
+            }
+        }
+        // discard player charges
+        this.game.discardPlayerCharge(defendingPlayer);
+        this.game.discardPlayerCharge(attackingPlayer);
+        // discard top card
+        CardManager.move(this.game.drawPile, this.game.discardPile);
+    }
+
+    changeShieldAction() {
+        this.game.changeShield();
+    }
+
+    chargeAction() {
+        this.game.charge();
+    }
+
     // handleChoosePlayerClick: trigger an action based on the chosen player
     handleChoosePlayerClick(point) {
         for (let p=0; p < this.game.players.length; p++) {
 			if(!this.game.players[p].isDead()) {
 				const pBox = this.game.players[p].box;
-				// Click on a player
 				if (this.isPointInBox(point, pBox)) {
-                    this.game.setSelectedPlayer(p);
-
+				    // click on a player, set as the selected player
+                    this.game.setSelectedPlayerIndex(p);
+                    // do the corresponding action
 					switch (this.game.getState()) {
                         case GameState.ATTACK:
-                            this.game.attack();
+                            this.attackAction();
                             break;
 
                         case GameState.SHIELD:
-                            this.game.changeShield();
+                            this.changeShieldAction();
                             break;
 
                         case GameState.CHARGE:
-                            this.game.charge();
+                            this.chargeAction();
                             break;
                     }
-
-                    this.game.setSelectedPlayer(-1);
-                    this.game.setState(GameState.TABLE);
+                    // unset the selected player once the action is done
+                    this.game.setSelectedPlayerIndex(-1);
+                    this.game.nextPlayer();
+                    // win condition check
+                    if (this.game.checkHasPlayerWon()) {
+                        this.game.setState(GameState.GAME_OVER);
+                    } else {
+                        this.game.setState(GameState.TABLE);
+                    }
 				}
 			}
 		}

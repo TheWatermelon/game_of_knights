@@ -216,7 +216,7 @@ class Game {
         return this.players[this.activePlayerIndex];
     }
 
-    setSelectedPlayer(playerIndex) {
+    setSelectedPlayerIndex(playerIndex) {
         this.selectedPlayerIndex = playerIndex;
     }
 
@@ -224,10 +224,46 @@ class Game {
         return this.players[this.selectedPlayerIndex];
     }
 
-    emptyPlayer(player) {
+    discardPlayerHp(player) {
         while (player.hp.length > 0) {
             CardManager.move(player.hp, this.discardPile);
         }
+    }
+
+    discardPlayerShield(player) {
+        while (player.shield.length > 0) {
+            CardManager.move(player.shield, this.discardPile);
+        }
+    }
+
+    discardPlayerCharge(player) {
+        while (player.charge.length > 0) {
+            CardManager.move(player.charge, this.discardPile);
+        }
+    }
+
+    emptyPlayer(player) {
+        this.discardPlayerHp(player);
+        this.discardPlayerShield(player);
+        this.discardPlayerCharge(player);
+    }
+
+    hasWon(player) {
+        for (let p = 0; p < this.players.length; p++) {
+            if (!this.players[p].isDead() && p !== this.activePlayerIndex) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    checkHasPlayerWon() {
+        for (let p = 0; p < this.players.length; p++) {
+            if (this.hasWon(this.players[p])) {
+                return true;
+            }
+        }
+        return false;
     }
 
     changeShield(player=this.getSelectedPlayer()) {
@@ -239,7 +275,8 @@ class Game {
         CardManager.move(this.drawPile, player.charge);
     }
 
-    attack(attackingPlayer=this.getActivePlayer(), defendingPlayer=this.getSelectedPlayer()) {
+    // attackGoesThrough: return losingPoints if attack > shield, else return 0
+    attackGoesThrough(attackingPlayer=this.getActivePlayer(), defendingPlayer=this.getSelectedPlayer()) {
         // totalAttack is the sum of the first card from the drawPile and potential charges
 	    let totalAttack = CardManager.getValue(CardManager.getTopCard(this.drawPile));
 	    totalAttack += CardManager.getTotal(attackingPlayer.charge);
@@ -247,79 +284,87 @@ class Game {
 	    // get shield value to find if the attack goes through
 	    const shieldValue = CardManager.getTotal(defendingPlayer.shield);
 
-        if (totalAttack > shieldValue) {
-            // losingPoints are remaining points after shield absorption
-            const losingPoints = totalAttack - shieldValue;
+        return (totalAttack > shieldValue) ? totalAttack - shieldValue : 0;
+    }
 
-            // remainingHp is the remaining health points
-            const totalHp = CardManager.getTotal(defendingPlayer.hp);
-            const remainingHp = Math.max(0, totalHp - losingPoints);
-            // if remainingHp is zero, that player loses the game, discarding their cards
-            if (remainingHp <= 0) {
-                this.emptyPlayer(defendingPlayer);
-            } else {
-                // try replacing only one card to match the new hp
-                let replacementValue = 0;
-                for (let i = 0; i < defendingPlayer.hp.length; i++) {
-                    replacementValue = CardManager.getValue(defendingPlayer.hp[i]) - losingPoints;
+    // getRemainingHpAfterAttack: return new Hp after losing points
+    getRemainingHpAfterAttack(defendingPlayer=this.getSelectedPlayer(), losingPoints) {
+        // remainingHp is the remaining health points
+        const totalHp = CardManager.getTotal(defendingPlayer.hp);
+        const remainingHp = Math.max(0, totalHp - losingPoints); 
+        return remainingHp;   
+    }
+    
+    // getNewHpFor: return a dict of {oldHp: [[pile, card],...], newHp: [[pile, card],...]}
+    // Each card coming from an existing pile, oldHp are cards to discard and newHp are cards to add to player hp
+    changeHpFor(defendingPlayer=this.getSelectedPlayer(), losingPoints, remainingHp) {
+        let oldHp = [];
+        // try replacing only one card to match the new hp
+        let replacementValue = 0;
+        for (let i = 0; i < defendingPlayer.hp.length; i++) {
+            replacementValue = CardManager.getValue(defendingPlayer.hp[i]) - losingPoints;
 
-                    // if replacementValue can be a card
-                    if (replacementValue >= 1 && replacementValue <= 13) {
-                        // discard one card from defending player hp
-                        let lostHpCardPos = {
-                            x:defendingPlayer.hpCardsPos.x + i*71.5,
-                            y:defendingPlayer.hpCardsPos.y
-                        };
-                        break;
-                    }
-                }
-                // one card isn't enough
-                if (replacementValue <= 0) {
-                    // discard all defendingPlayer hp
-                    while (defendingPlayer.hp.length > 0) {
-                        CardManager.move(defendingPlayer.hp, this.discardPile);
-                    }
-                    replacementValue = remainingHp;
-                }
-
-                // find replacement card(s)
-                let replacementCards = [];
-                // search for a card in discardPile / drawPile
-                const replacementCard = CardManager.findReplacementCardFor(replacementValue, this.drawPile, this.discardPile);
-                // replacement card hasn't been found in either discardPile or drawPile, we need to search for a pair of cards
-                if (replacementCard[1] < 0) {
-                    const pairs = CardManager.generatePairsFrom(replacementValue);
-                    for (let p = 0; p < pairs.length; p++) {
-                        const firstCard = CardManager.findReplacementCardFor(pairs[p], this.drawPile, this.discardPile);
-                        const secondCard = CardManager.findReplacementCardFor(pairs[p], this.drawPile, this.discardPile);
-                        // this pair is a fit replacement
-                        if (firstCard[1] > 0 && secondCard[1] > 0) {
-                            replacementCards.push(firstCard);
-                            replacementCards.push(secondCard);
-                            break;
-                        }
-                    }
-                } else {
-                    replacementCards.push(replacementCard);
-                }
-                
-                // add replacement card(s) to defendingPlayer hp
-                while (replacementCards.length > 0) {
-                    CardManager.move(replacementCards, defendingPlayer.hp);
-                }
-
+            // if replacementValue can be a card
+            if (replacementValue >= 1 && replacementValue <= 13) {
+                // discard one card from defending player hp
+                oldHp.push([defendingPlayer.hp, defendingPlayer.hp[i]]);
+                break;
             }
         }
-
-        while (defendingPlayer.hasCharge()) {
-			CardManager.move(defendingPlayer.charge, this.discardPile);
-			defendingPlayer.showCharge.pop();
-		}
-
-        while (attackingPlayer.hasCharge()) {
-            CardManager.move(attackingPlayer.charge, this.discardPile)
+        // one card isn't enough, all defendingPlayer hp cards will be changed
+        if (replacementValue <= 0) {
+            for (let i = 0; i < defendingPlayer.hp.length; i++) {
+                oldHp.push([defendingPlayer.hp, defendingPlayer.hp[i]]);
+            }
+            replacementValue = remainingHp;
         }
 
+        // find replacement card(s)
+        let replacementCards = [];
+        // search for a card in discardPile / drawPile
+        const replacementCard = CardManager.findReplacementCardFor(replacementValue, this.drawPile, this.discardPile);
+        // replacement card hasn't been found in either discardPile or drawPile, we need to search for a pair of cards
+        if (replacementCard[1] < 0) {
+            const pairs = CardManager.generatePairsFrom(replacementValue);
+            for (let p = 0; p < pairs.length; p++) {
+                const firstCard = CardManager.findReplacementCardFor(pairs[p], this.drawPile, this.discardPile);
+                const secondCard = CardManager.findReplacementCardFor(pairs[p], this.drawPile, this.discardPile);
+                // this pair is a fit replacement
+                if (firstCard[1] > 0 && secondCard[1] > 0) {
+                    replacementCards.push(firstCard);
+                    replacementCards.push(secondCard);
+                    break;
+                }
+            }
+        } else {
+            replacementCards.push(replacementCard);
+        }
+        return {oldHp: oldHp, newHp: replacementCards};
+    }
+    
+    attack(attackingPlayer=this.getActivePlayer(), defendingPlayer=this.getSelectedPlayer()) {
+        const losingPoints = this.attackGoesThrough(attackingPlayer, defendingPlayer);
+        
+        if (losingPoints > 0) {
+            const remainingHp = this.getRemainingHpAfterAttack(defendingPlayer, losingPoints);
+            if (remainingHp > 0)  {
+                const cardsToChange = this.changeHpFor(defendingPlayer, losingPoints, remainingHp);
+                // discard old hp cards
+                for (let i = 0; i < cardsToChange["oldHp"].length; i++) {
+                    CardManager.move(cardsToChange["oldHp"][i][0], this.discardPile, cardsToChange["oldHp"][i][1]);
+                }
+                // put new hp cards into defendingPlayer hp
+                for (let j = 0; j < cardsToChange["newHp"].length; j++) {
+                    CardManager.move(cardsToChange["newHp"][j][0], defendingPlayer, cardsToChange["newHp"][j][1]);
+                }
+            } else { // defendingPlayer lost all their hp
+                this.discardPlayerHp(defendingPlayer);
+            }
+        }
+        // discard player charges
+        this.discardPlayerCharge(defendingPlayer);
+        this.discardPlayerCharge(attackingPlayer);
+        // discard top card
         CardManager.move(this.drawPile, this.discardPile);
     }
 
