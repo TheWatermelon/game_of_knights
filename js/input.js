@@ -151,6 +151,35 @@ class InputController {
         this.game.charge();
     }
 
+    // triggerAction: trigger an action based on the chosen player
+    // selectedPlayer must be set before calling this function
+    triggerAction() {
+        if (this.game.getSelectedPlayerIndex() === -1) { return; }
+        // do the corresponding action
+        switch (this.game.getState()) {
+            case GameState.ATTACK:
+                this.attackAction();
+                break;
+
+            case GameState.SHIELD:
+                this.changeShieldAction();
+                break;
+
+            case GameState.CHARGE:
+                this.chargeAction();
+                break;
+        }
+        // unset the selected player once the action is done
+        this.game.setSelectedPlayerIndex(-1);
+        this.game.nextPlayer();
+        // win condition check
+        if (this.game.checkHasPlayerWon()) {
+            this.game.setState(GameState.GAME_OVER);
+        } else {
+            this.game.setState(GameState.TABLE);
+        }
+    }
+
     // handleChoosePlayerClick: trigger an action based on the chosen player
     handleChoosePlayerClick(point) {
         for (let p=0; p < this.game.players.length; p++) {
@@ -159,29 +188,7 @@ class InputController {
 				if (this.isPointInBox(point, pBox)) {
 				    // click on a player, set as the selected player
                     this.game.setSelectedPlayerIndex(p);
-                    // do the corresponding action
-					switch (this.game.getState()) {
-                        case GameState.ATTACK:
-                            this.attackAction();
-                            break;
-
-                        case GameState.SHIELD:
-                            this.changeShieldAction();
-                            break;
-
-                        case GameState.CHARGE:
-                            this.chargeAction();
-                            break;
-                    }
-                    // unset the selected player once the action is done
-                    this.game.setSelectedPlayerIndex(-1);
-                    this.game.nextPlayer();
-                    // win condition check
-                    if (this.game.checkHasPlayerWon()) {
-                        this.game.setState(GameState.GAME_OVER);
-                    } else {
-                        this.game.setState(GameState.TABLE);
-                    }
+                    this.triggerAction();
 				}
 			}
 		}

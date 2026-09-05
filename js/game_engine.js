@@ -220,6 +220,10 @@ class Game {
         this.selectedPlayerIndex = playerIndex;
     }
 
+    getSelectedPlayerIndex() {
+        return this.selectedPlayerIndex;
+    }
+
     getSelectedPlayer() {
         return this.players[this.selectedPlayerIndex];
     }
