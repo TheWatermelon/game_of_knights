@@ -956,8 +956,8 @@ main();
 
 const game = new Game();
 const renderer = new Renderer(game);
-const input = new InputController(renderer, game);
-const animationManager = new AnimationManager();
+const animationManager = new CardAnimationManager();
+const input = new InputController(renderer, animationManager, game);
 
 let previousTime = performance.now();
 

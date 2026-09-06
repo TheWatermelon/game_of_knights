@@ -146,7 +146,7 @@ class PlayerOnCanvas extends Player {
     getChargeCardPos() {
         const chargeCardPos = {
             x: this.box.x1 + 180,
-            y: ((this.order === PLAYERS_ORDER.TOP_LEFT || this.order === PLAYERS_ORDER.TOP_RIGHT) ? this.box.y1 + 98 : 24),
+            y: ((this.order === PLAYERS_ORDER.TOP_LEFT || this.order === PLAYERS_ORDER.TOP_RIGHT) ? 24 : this.box.y1 + 98),
             degrees: 0
         };
         return chargeCardPos;            
@@ -178,45 +178,63 @@ class AnimationManager {
         );
     }
 
-    draw(render) {
+    drawAsync(render) {
         // STUB
     }
 }
 
 class CardAnimationManager extends AnimationManager {
-    constructor() {
-        super();
-    }
-
-    // add: add an animation to the list
     add(cardSprite, source, destination, duration) {
-        this.animations.push({
-            cardSprite,
-            source,
-            destination,
-            duration,
-            elapsed: 0
+        return new Promise(resolve => {
+            this.animations.push({
+                cardSprite,
+                source,
+                destination,
+                duration,
+                elapsed: 0,
+                resolve
+            });
         });
     }
 
-    // draw each animation step on the list
+    update(deltaTime) {
+        for (const animation of this.animations) {
+            animation.elapsed += deltaTime;
+        }
+
+        const finished = this.animations.filter(
+            animation => animation.elapsed >= animation.duration
+        );
+
+        for (const animation of finished) {
+            animation.resolve();
+        }
+
+        this.animations = this.animations.filter(
+            animation => animation.elapsed < animation.duration
+        );
+    }
+
     draw(renderer) {
         for (const animation of this.animations) {
             const progress = Math.min(
                 animation.elapsed / animation.duration,
                 1
             );
-            // compute position step based on progress
+
             const position = {
-                x: animation.source.x + (animation.destination.x - animation.source.x) * progress,
-                y: animation.source.y + (animation.destination.y - animation.source.y) * progress,
-                degrees: animation.source.degrees + (animation.destination.degrees - animation.source.degrees) * progress
+                x: animation.source.x +
+                    (animation.destination.x - animation.source.x) * progress,
+
+                y: animation.source.y +
+                    (animation.destination.y - animation.source.y) * progress,
+
+                degrees: animation.source.degrees +
+                    (animation.destination.degrees -
+                     animation.source.degrees) * progress
             };
 
-            renderer.drawCard(
-                animation.cardSprite,
-                position
-            );
+            renderer.drawCard(animation.cardSprite, position, position.degrees);
         }
     }
 }

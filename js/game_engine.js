@@ -152,9 +152,19 @@ class Player {
         this.charge = []; // charge, [0;x] cards
     }
 
-    // getHpTotal: returns the total value of this player hp cards
+    // getHpTotal: return the total value of this player hp cards
     getHpTotal() {
         return CardManager.getTotal(this.hp);
+    }
+
+    // setShield: change player shield
+    setShield(cardId) {
+        this.shield.push(cardId);
+    }
+
+    // getShield: return shield card
+    getShield() {
+        return CardManager.getTopCard(this.shield);
     }
 
     // hasCharge: return true if this player has at least one charge
@@ -162,7 +172,7 @@ class Player {
         return (this.charge.length > 0);
     }
 
-    // isDead: returns true if this player has no hp
+    // isDead: return true if this player has no hp
     isDead() {
         return this.getHpTotal() === 0;
     }

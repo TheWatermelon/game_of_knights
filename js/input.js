@@ -1,6 +1,7 @@
 class InputController {
-    constructor(view, game) {
+    constructor(view, animationManager, game) {
         this.view = view;
+        this.animationManager = animationManager;
         this.game = game;
 
         this.view.canvas.addEventListener("click", event => {
@@ -115,7 +116,7 @@ class InputController {
 		else if (this.isPointInBox(point, chargeBox)) { this.game.setState(GameState.CHARGE); }
     }
 
-    attackAction() {
+    async attackAction() {
         const attackingPlayer = this.game.getActivePlayer();
         const defendingPlayer = this.game.getSelectedPlayer();
         const losingPoints = this.game.attackGoesThrough(attackingPlayer, defendingPlayer);
@@ -143,18 +144,47 @@ class InputController {
         CardManager.move(this.game.drawPile, this.game.discardPile);
     }
 
-    changeShieldAction() {
-        this.game.changeShield();
+    async changeShieldAction() {
+        const topCardId = CardManager.getTopCard(this.game.drawPile);
+        const topCardSpr = this.view.getSpriteCoordFor(topCardId);
+        const shieldCardId = this.game.getSelectedPlayer().getShield();
+        const shieldCardSpr = this.view.getSpriteCoordFor(shieldCardId);
+        const shieldCardPos = this.game.getSelectedPlayer().getShieldCardPos();
+
+        let buffer = [];
+        CardManager.move(this.game.getSelectedPlayer().shield, buffer);
+
+        await this.animationManager.add(
+            shieldCardSpr,
+            shieldCardPos,
+            DISCARD_PILE_POS,
+            200
+        );
+
+        CardManager.move(buffer, this.game.discardPile);
+
+        await this.animationManager.add(
+            topCardSpr,
+            TOP_CARD_POS,
+            shieldCardPos,
+            200
+        );
+
+        CardManager.move(this.game.drawPile, this.game.getSelectedPlayer().shield);
     }
 
-    chargeAction() {
+    async chargeAction() {
+        await this.animationManager.add(
+            CARD_FACE_DOWN_SPR,
+            TOP_CARD_POS,
+            this.game.getSelectedPlayer().getChargeCardPos(),
+            200
+        );
         this.game.charge();
     }
 
     // triggerAction: trigger an action based on the chosen player
-    // selectedPlayer must be set before calling this function
     triggerAction() {
-        if (this.game.getSelectedPlayerIndex() === -1) { return; }
         // do the corresponding action
         switch (this.game.getState()) {
             case GameState.ATTACK:
@@ -169,8 +199,6 @@ class InputController {
                 this.chargeAction();
                 break;
         }
-        // unset the selected player once the action is done
-        this.game.setSelectedPlayerIndex(-1);
         this.game.nextPlayer();
         // win condition check
         if (this.game.checkHasPlayerWon()) {
