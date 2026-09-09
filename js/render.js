@@ -107,6 +107,16 @@ class PlayerOnCanvas extends Player {
         this.attackCardPos = this.getAttackCardPos();
     }
 
+    setShowCharge(index, toggle) {
+        this.showCharge[index] = toggle;
+    }
+
+    emptyShowCharge() {
+        while (this.showCharge.length > 0) {
+            this.showCharge.pop();
+        }
+    }
+
     // getBox: returns player box as {x1, y1, x2, y2} based on player order
     getBox() {
         // create player box

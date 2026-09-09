@@ -172,6 +172,11 @@ class Player {
         return (this.charge.length > 0);
     }
 
+    // addCharge: adding a charge to this player
+    addCharge(cardId) {
+        this.charge.push(cardId);
+    }
+
     // isDead: return true if this player has no hp
     isDead() {
         return this.getHpTotal() === 0;

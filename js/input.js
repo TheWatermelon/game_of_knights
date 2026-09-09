@@ -117,10 +117,55 @@ class InputController {
     }
 
     async attackAction() {
-        const attackingPlayer = this.game.getActivePlayer();
-        const defendingPlayer = this.game.getSelectedPlayer();
+        let attackingPlayer = this.game.getActivePlayer();
+        let defendingPlayer = this.game.getSelectedPlayer();
         const losingPoints = this.game.attackGoesThrough(attackingPlayer, defendingPlayer);
         
+        const topCardSpr = this.view.getSpriteCoordFor(CardManager.getTopCard(this.game.drawPile));
+        const attackCardPos = defendingPlayer.getAttackCardPos();
+        await this.animationManager.add(
+            topCardSpr,
+            TOP_CARD_POS,
+            attackCardPos,
+            200
+        );
+
+        if (attackingPlayer.charge.length > 0) {
+            const lastChargeSpr = this.view.getSpriteCoordFor(CardManager.getTopCard(attackingPlayer.charge));
+            const lastChargePos = {
+                x: attackCardPos.x + 50,
+                y: attackCardPos.y,
+                degrees: attackCardPos.degrees
+            };
+            attackingPlayer.showCharge = false;
+            await this.animationManager.add(
+                lastChargeSpr,
+                attackingPlayer.getChargeCardPos(),
+                lastChargePos,
+                200
+            );
+            let currentChargeCardPos = {
+                x: lastChargePos.x,
+                y: lastChargePos.y,
+                degrees: lastChargePos.degrees
+            };
+            let nextChargeCardPos = {
+                x: currentChargeCardPos.x + 20,
+                y: currentChargeCardPos.y,
+                degrees: currentChargeCardPos.degrees
+            };
+            for (let c = 0; c < attackingPlayer.charge.length; c++) {
+                attackingPlayer.setShowCharge(c, true);
+                await this.animationManager.add(
+                    lastChargeSpr,
+                    currentChargeCardPos,
+                    nextChargeCardPos,
+                    100
+                );
+                currentChargeCardPos.x = nextChargeCardPos.x;
+                nextChargeCardPos.x += 20;
+            }
+        }
         if (losingPoints > 0) {
             const remainingHp = this.game.getRemainingHpAfterAttack(defendingPlayer, losingPoints);
             if (remainingHp > 0)  {
@@ -139,7 +184,9 @@ class InputController {
         }
         // discard player charges
         this.game.discardPlayerCharge(defendingPlayer);
+        defendingPlayer.emptyShowCharge();
         this.game.discardPlayerCharge(attackingPlayer);
+        attackingPlayer.emptyShowCharge();
         // discard top card
         CardManager.move(this.game.drawPile, this.game.discardPile);
     }
@@ -181,6 +228,7 @@ class InputController {
             200
         );
         this.game.charge();
+        this.game.getSelectedPlayer().showCharge.push(false);
     }
 
     // triggerAction: trigger an action based on the chosen player
