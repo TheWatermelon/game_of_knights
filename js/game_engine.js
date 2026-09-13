@@ -144,8 +144,9 @@ const CardManager = {
 const DECK = Object.freeze(CardManager.createDeck());
 
 class Player {
-    constructor(name, color) {
+    constructor(name, isBot) {
         this.name = name;
+        this.isBot = isBot;
 
         this.hp = []; // health points, between 1 and 3 cards
         this.shield = []; // shield, actually one card
@@ -196,7 +197,7 @@ class Game {
     }
 
     // init game
-    initGameFor(numberOfPlayers, playersName=[]) {
+    initGameFor(numberOfPlayers, playersName=[], playersType=[false, true, true, true]) {
         // init card piles
         this.drawPile = Array.from({ length: 52 }, (_, index) => index + 1);
         CardManager.shuffle(this.drawPile);
@@ -208,7 +209,7 @@ class Game {
         this.selectedPlayerIndex = -1;
 
         for(let p = 0; p < numberOfPlayers; p++) {
-            let newP = new PlayerOnCanvas(playersName[p], PLAYERS_COLORS[p], p);
+            let newP = new PlayerOnCanvas(playersName[p], playersType[p], PLAYERS_COLORS[p], p);
             
             // distribute three cards to this player
             CardManager.move(this.drawPile, newP.hp);

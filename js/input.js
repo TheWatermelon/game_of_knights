@@ -4,6 +4,8 @@ class InputController {
         this.animationManager = animationManager;
         this.game = game;
 
+        this.botController = new SafeBot(this.game, this);
+
         this.view.canvas.addEventListener("click", event => {
             this.handleClick(event);
         });
@@ -207,7 +209,7 @@ class InputController {
                     nextChargeCardPos,
                     200
                 );
-                
+
                 // hide charge behind top charge
                 let hidingCharge = lastChargeIndex - c;
                 attackingPlayer.setShowCharge(hidingCharge, false);
@@ -327,7 +329,7 @@ class InputController {
         if (this.game.checkHasPlayerWon()) {
             this.game.setState(GameState.GAME_OVER);
         } else {
-            this.game.setState(GameState.TABLE);
+            await this.startTurn();
         }
     }
 
@@ -343,5 +345,15 @@ class InputController {
 				}
 			}
 		}
+    }
+
+    async startTurn() {
+        const player = this.game.getActivePlayer();
+        
+        this.game.setState(GameState.TABLE);
+
+        if (player.isBot) {
+            await this.botController.playTurn();
+        }
     }
 }

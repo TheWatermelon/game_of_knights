@@ -90,8 +90,8 @@ const SHIELD_ICON_POS = Object.freeze({x: 505, y: 268});
 const CHARGE_ICON_POS = Object.freeze({x: 490, y: 328});
 
 class PlayerOnCanvas extends Player {
-    constructor(name, color, order) {
-        super(name);
+    constructor(name, isBot, color, order) {
+        super(name, isBot);
 
         this.color = color;
         this.order = order;
