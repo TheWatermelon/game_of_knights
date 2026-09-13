@@ -8,7 +8,7 @@
 	</head>
 	<body>
 		<canvas id="myCanvas"></canvas>
-		<div id="log"><p>Welcome to Game of Knights ! See <a onclick="showHelp(true)">rules</a> to learn how to play.</p></div>
+		<div id="log"><p>Welcome to Game of Knights ! See <a onclick="renderer.showHelp(true)">rules</a> to learn how to play.</p></div>
 		<div id="rules" style="display:none">
 			<h2>Rules</h2>
 			<p>Game of knights is a tabletop game using a pack of 52 cards. It can be played with 2+ players.<br>
@@ -21,7 +21,7 @@
 				<li><b>Attack</b>: your attack value is the drawn card plus all your charges. If your attack is higher than the defender's shield, they lose lifepoints equal to the difference. After attacking, discard the drawn card, your charges and the defending knight's charges.</li>
 			</ul>
 			<p>A knight loses at 0 lifepoints. The last knight standing wins.</p>
-			<a onclick="showHelp(false)">Hide rules</a>
+			<a onclick="renderer.showHelp(false)">Hide rules</a>
 		</div>
 		<script src="js/game_engine.js"></script>
 		<script src="js/bot.js"></script>
