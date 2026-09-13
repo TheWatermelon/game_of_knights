@@ -121,52 +121,60 @@ class InputController {
         let defendingPlayer = this.game.getSelectedPlayer();
         const losingPoints = this.game.attackGoesThrough(attackingPlayer, defendingPlayer);
         
-        const topCardSpr = this.view.getSpriteCoordFor(CardManager.getTopCard(this.game.drawPile));
-        const attackCardPos = defendingPlayer.getAttackCardPos();
-        await this.animationManager.add(
-            topCardSpr,
-            TOP_CARD_POS,
-            attackCardPos,
-            200
-        );
+        /*
+        * ANIMATION 1 : bring charge from player box to front of defender's shield
+        */
+        let attackCardPos = defendingPlayer.getAttackCardPos();
+        // start from attacking player charge pos
+        let currentChargeCardPos = attackingPlayer.getChargeCardPos();
+        const chargeCount = attackingPlayer.charge.length;
+        const lastChargeIndex = chargeCount - 1;
 
-        if (attackingPlayer.charge.length > 0) {
+        if (chargeCount > 0) {
+            // we only need the last charge spr for the animation
             const lastChargeSpr = this.view.getSpriteCoordFor(CardManager.getTopCard(attackingPlayer.charge));
-            const lastChargePos = {
-                x: attackCardPos.x + 50,
-                y: attackCardPos.y,
-                degrees: attackCardPos.degrees
-            };
-            attackingPlayer.showCharge = false;
-            await this.animationManager.add(
-                lastChargeSpr,
-                attackingPlayer.getChargeCardPos(),
-                lastChargePos,
-                200
-            );
-            let currentChargeCardPos = {
-                x: lastChargePos.x,
-                y: lastChargePos.y,
-                degrees: lastChargePos.degrees
-            };
-            let nextChargeCardPos = {
-                x: currentChargeCardPos.x + 20,
-                y: currentChargeCardPos.y,
-                degrees: currentChargeCardPos.degrees
-            };
-            for (let c = 0; c < attackingPlayer.charge.length; c++) {
-                attackingPlayer.setShowCharge(c, true);
+            // go next to the attacking card in front of defending player
+            let nextChargeCardPos = this.view.copyPosition(attackCardPos);
+            nextChargeCardPos.x += 50;
+
+            for (let c = 0; c < chargeCount; c++) {
+                // move the last charge
                 await this.animationManager.add(
                     lastChargeSpr,
                     currentChargeCardPos,
                     nextChargeCardPos,
-                    100
+                    200
                 );
-                currentChargeCardPos.x = nextChargeCardPos.x;
+                // show the charge behind the last charge
+                attackingPlayer.setShowCharge(c, true);
+                // update current pos
+                currentChargeCardPos = this.view.copyPosition(nextChargeCardPos);
+                // move next pos
                 nextChargeCardPos.x += 20;
             }
+            await this.view.sleep(200);
         }
+
+        /*
+        * ANIMATION 2 : bring top card (attack card) in front of defending player's shield
+        */
+        const attackCardSpr = this.view.getSpriteCoordFor(CardManager.getTopCard(this.game.drawPile));
+        await this.animationManager.add(
+            attackCardSpr,
+            TOP_CARD_POS,
+            attackCardPos,
+            200
+        );
+        
+        // showAttack tells the render to keep showing the attackCard and attack charges
+        attackingPlayer.showAttack = true;
+
         if (losingPoints > 0) {
+            /*
+            * ANIMATION 3 : blink defendingPlayer hp
+            */
+            await this.view.blinkPlayer(defendingPlayer, 400);
+
             const remainingHp = this.game.getRemainingHpAfterAttack(defendingPlayer, losingPoints);
             if (remainingHp > 0)  {
                 const cardsToChange = this.game.changeHpFor(defendingPlayer, losingPoints, remainingHp);
@@ -182,11 +190,77 @@ class InputController {
                 this.game.discardPlayerHp(defendingPlayer);
             }
         }
+
+        /*
+        * ANIMATION 4 : discard attacking charge
+        */
+        if (chargeCount > 0) {
+            // we only animate the last charge
+            const lastChargeSpr = this.view.getSpriteCoordFor(CardManager.getTopCard(attackingPlayer.charge));
+            let nextChargeCardPos = this.view.copyPosition(currentChargeCardPos);;
+
+            for (let c = 0; c < chargeCount; c++) {
+                // move the last charge
+                await this.animationManager.add(
+                    lastChargeSpr,
+                    currentChargeCardPos,
+                    nextChargeCardPos,
+                    200
+                );
+                
+                // hide charge behind top charge
+                let hidingCharge = lastChargeIndex - c;
+                attackingPlayer.setShowCharge(hidingCharge, false);
+
+                // update current charge pos
+                currentChargeCardPos.x = nextChargeCardPos.x;
+                //get next position
+                nextChargeCardPos.x -= 20;
+            }
+
+            // discard last charge
+            await this.animationManager.add(
+                lastChargeSpr,
+                currentChargeCardPos,
+                DISCARD_PILE_POS,
+                200
+            );
+        }
+
         // discard player charges
         this.game.discardPlayerCharge(defendingPlayer);
         defendingPlayer.emptyShowCharge();
         this.game.discardPlayerCharge(attackingPlayer);
         attackingPlayer.emptyShowCharge();
+
+        // showAttack tells the render to keep showing the attackCard and attack charges
+        attackingPlayer.showAttack = false;
+
+        /*
+        * ANIMATION 5 : tilt the attack card (bouncing from the shield)
+        */
+        const tiltedAttackCardPos = {
+            x: attackCardPos.x - 15,
+            y: (defendingPlayer.box.y1 < 300) ? attackCardPos.y + 50 : attackCardPos.y - 50,
+            degrees: 45
+        }
+        await this.animationManager.add(
+            attackCardSpr,
+            attackCardPos,
+            tiltedAttackCardPos,
+            200
+        );
+        attackCardPos = this.view.copyPosition(tiltedAttackCardPos);
+        /*
+        * ANIMATION 6 : discard attack card
+        */
+        await this.animationManager.add(
+            attackCardSpr,
+            attackCardPos,
+            DISCARD_PILE_POS,
+            300
+        );
+
         // discard top card
         CardManager.move(this.game.drawPile, this.game.discardPile);
     }
@@ -232,19 +306,20 @@ class InputController {
     }
 
     // triggerAction: trigger an action based on the chosen player
-    triggerAction() {
+    async triggerAction() {
         // do the corresponding action
         switch (this.game.getState()) {
             case GameState.ATTACK:
-                this.attackAction();
+                this.game.setState(GameState.ATTACK_VIEW);
+                await this.attackAction();
                 break;
 
             case GameState.SHIELD:
-                this.changeShieldAction();
+                await this.changeShieldAction();
                 break;
 
             case GameState.CHARGE:
-                this.chargeAction();
+                await this.chargeAction();
                 break;
         }
         this.game.nextPlayer();

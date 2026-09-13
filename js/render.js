@@ -102,9 +102,9 @@ class PlayerOnCanvas extends Player {
         this.showAttack = false; 
 
         this.hpCardsPos = this.getHpCardsPos();
-        this.shieldCardPos = this.getShieldCardPos();
-        this.chargeCardPos = this.getChargeCardPos();
-        this.attackCardPos = this.getAttackCardPos();
+        this.shieldCardPos = this.setupShieldCardPos();
+        this.chargeCardPos = this.setupChargeCardPos();
+        this.attackCardPos = this.setupAttackCardPos();
     }
 
     setShowCharge(index, toggle) {
@@ -142,8 +142,8 @@ class PlayerOnCanvas extends Player {
         return hpCardsPos;
     }
 
-    // getShieldCardPos: returns pos as {x, y, degrees} for the shield card
-    getShieldCardPos() {
+    // setupShieldCardPos: returns pos as {x, y, degrees} for the shield card
+    setupShieldCardPos() {
         const shieldCardPos = {
             x: this.box.x1 + 105 - CARD_SIZE_CANVAS.width/2,
             y: ((this.order === PLAYERS_ORDER.TOP_LEFT || this.order === PLAYERS_ORDER.TOP_RIGHT) ? this.box.y1 + 98 : this.box.y1 + 24),
@@ -152,8 +152,12 @@ class PlayerOnCanvas extends Player {
         return shieldCardPos;  
     }
 
-    // getChargeCardPos: returns pos as {x, y, degrees} for the face down charge
-    getChargeCardPos() {
+    getShieldCardPos() {
+        return this.shieldCardPos;
+    }
+
+    // setupChargeCardPos: returns pos as {x, y, degrees} for the face down charge
+    setupChargeCardPos() {
         const chargeCardPos = {
             x: this.box.x1 + 180,
             y: ((this.order === PLAYERS_ORDER.TOP_LEFT || this.order === PLAYERS_ORDER.TOP_RIGHT) ? 24 : this.box.y1 + 98),
@@ -162,14 +166,26 @@ class PlayerOnCanvas extends Player {
         return chargeCardPos;            
     }
 
+    getChargeCardPos() {
+        return this.chargeCardPos;
+    }
+
     // getAttackCardPos: returns pos as {x, y, degrees} for the attacking card in front of player shield
-    getAttackCardPos() {
+    setupAttackCardPos() {
         const attackCardPos = {
 		    x: this.box.x1 + 50, 
 		    y: ((this.order === PLAYERS_ORDER.TOP_LEFT || this.order === PLAYERS_ORDER.TOP_RIGHT) ? this.box.y2 - 75 : this.box.y1 - 15), 
 		    degrees:0
 	    };
         return attackCardPos;
+    }
+
+    getAttackCardPos() {
+        return this.attackCardPos;
+    }
+
+    setAttackCardPos(position) {
+        this.attackCardPos = position;
     }
 }
 
@@ -304,6 +320,14 @@ class Renderer {
         this.game = game;
     }
 
+    copyPosition(position) {
+        return {
+            x: position.x,
+            y: position.y,
+            degrees: position.degrees ?? 0
+        };
+    }
+
     // get coords as {x, y} of a card from its index
     getSpriteCoordFor(cardId) {
         const cardValue = CardManager.getValue(cardId);
@@ -369,7 +393,7 @@ class Renderer {
     // drawChargeFor: draw charge for a player
     // show a face down card with the number of charges written in a corner
     drawChargeFor(player) {
-        if (player.charge.length === 0) { return; }
+        if (player.charge.length === 0 || this.game.getState() === GameState.ATTACK_VIEW) { return; }
         this.drawCard(CARD_FACE_DOWN_SPR, player.chargeCardPos);
         this.context.fillStyle = "goldenrod";
         this.context.fillRect(player.chargeCardPos.x-2, player.chargeCardPos.y-2, 29, 29);
@@ -414,9 +438,26 @@ class Renderer {
         // player name
         const playerNamePos = {
             x: player.box.x1 + 15,
-            y: (player.order === PLAYERS_ORDER.BOTTOM_LEFT || player.order === PLAYERS_ORDER.BOTTOM_RIGHT) ? player.box.y1 + 8 : player.box.y1 + 213
+            y: (player.order === PLAYERS_ORDER.BOTTOM_LEFT || player.order === PLAYERS_ORDER.BOTTOM_RIGHT) ? player.box.y1 + 8 : player.box.y2 + 3
         };
         this.context.fillText(player.name, playerNamePos.x, playerNamePos.y);
+    }
+
+    sleep(milliseconds) {
+        return new Promise(resolve => setTimeout(resolve, milliseconds));
+    }
+
+    async blinkPlayer(player, duration) {
+        const interval = 100;
+        const endTime = Date.now() + duration;
+
+        while (Date.now() < endTime) {
+            player.showHp = !player.showHp;
+            await this.sleep(interval);
+        }
+
+        // Ensure the cards are visible when blinking ends
+        player.showHp = true;
     }
 
 	// draw attack action on canvas
@@ -469,7 +510,7 @@ class Renderer {
 
     // draw attacking card in front of defender shield
     drawAttackerTopCard() {
-        if (this.getActivePlayer().showAttack) {
+        if (this.game.getActivePlayer().showAttack) {
             const topCardSpr = this.getSpriteCoordFor(CardManager.getTopCard(this.game.drawPile));
             this.drawCard(topCardSpr, this.game.getSelectedPlayer().attackCardPos);
         }
@@ -479,12 +520,13 @@ class Renderer {
     drawAttackerCharges() {
         const attackingPlayer = this.game.getActivePlayer();
         const defendingPlayer = this.game.getSelectedPlayer();
+        const attackCardPos = defendingPlayer.getAttackCardPos();
         for (let c = 0; c < attackingPlayer.charge.length; c ++) {
             if (attackingPlayer.showCharge[c] === true) {
                 let chargeCardPos = {
-                    x: defendingPlayer.box.x1 + 100 + c*15,
-                    y: (defendingPlayer.box.y2 < 300) ? defendingPlayer.box.y2 - 75 : defendingPlayer.box.y1 - 15,
-                    degrees: 0
+                    x: attackCardPos.x + 50 + c*20,
+                    y: attackCardPos.y,
+                    degrees: attackCardPos.degrees
                 };
                 let chargeCardSpr = this.getSpriteCoordFor(attackingPlayer.charge[c]);
                 this.drawCard(chargeCardSpr, chargeCardPos);
@@ -533,7 +575,11 @@ class Renderer {
             case GameState.ATTACK:
                 this.drawTable();
                 this.drawTopCard();
-                for (const player in this.game.players) { this.drawPlayerBox(this.game.players[player]); }
+                for (const player of this.game.players) { 
+                    if (!player.isDead()) {
+                        this.drawPlayerBox(player);
+                    }
+                }
                 this.drawPlayers();
                 this.drawAttackActionOnCanvas();
                 break;
@@ -541,7 +587,11 @@ class Renderer {
             case GameState.SHIELD:
                 this.drawTable();
                 this.drawTopCard();
-                for (const player in this.game.players) { this.drawPlayerBox(this.game.players[player]); }
+                for (const player of this.game.players) { 
+                    if (!player.isDead()) {
+                        this.drawPlayerBox(player);
+                    }
+                }
                 this.drawPlayers();
                 this.drawShieldActionOnCanvas();
                 break;
@@ -549,7 +599,11 @@ class Renderer {
             case GameState.CHARGE:
                 this.drawTable();
                 this.drawTopCard();
-                for (const player in this.game.players) { this.drawPlayerBox(this.game.players[player]); }
+                for (const player of this.game.players) { 
+                    if (!player.isDead()) {
+                        this.drawPlayerBox(player);
+                    }
+                }
                 this.drawPlayers();
                 this.drawChargeActionOnCanvas();
                 break;
@@ -559,8 +613,8 @@ class Renderer {
                 this.drawPlayerBox(this.game.getActivePlayer());
                 this.drawPlayers();
                 this.drawAttackActionOnCanvas();
-                this.drawAttackerTopCard();
                 this.drawAttackerCharges();
+                this.drawAttackerTopCard();
                 break;
         }
     }
