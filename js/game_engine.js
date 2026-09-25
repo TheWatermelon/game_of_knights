@@ -165,11 +165,21 @@ class Player {
     constructor(name, isBot) {
         this.name = name;
         this.isBot = isBot;
-
+		this.botBehaviour =  0;
         this.hp = []; // health points, between 1 and 3 cards
         this.shield = []; // shield, actually one card
         this.charge = []; // charge, [0;x] cards
     }
+
+	// setBotBehaviour: set bot behaviour as an index of bot controllers list
+	setBotBehaviour(index) {
+		this.botBehaviour = index;
+	}
+
+	// getBotBehaviour: return index of bot controllers list
+	getBotBehaviour() {
+		return this.botBehaviour;
+	}
 
     // getHpTotal: return the total value of this player hp cards
     getHpTotal() {
@@ -215,7 +225,7 @@ class Game {
     }
 
     // init game
-    initGameFor(numberOfPlayers, playersName=[], playersType=[false, true, true, true]) {
+    initGameFor(numberOfPlayers, playersName=[], playersType=[false, false, false, false]) {
         // init card piles
         this.drawPile = Array.from({ length: 52 }, (_, index) => index + 1);
         CardManager.shuffle(this.drawPile);
@@ -245,6 +255,10 @@ class Game {
     getState() {
         return this.state;
     }
+
+	getBots() {
+		return this.players.filter(player => player.isBot);
+	}
 
     getActivePlayer() {
         return this.players[this.activePlayerIndex];
@@ -406,12 +420,17 @@ class Game {
         CardManager.move(this.drawPile, this.discardPile);
     }
 
-    nextPlayer() {
+    getNextPlayerIndex() {
         // cycle through players
-        this.activePlayerIndex = (this.activePlayerIndex + 1) % this.players.length;
+        let nextPlayerIndex = (this.activePlayerIndex + 1) % this.players.length;
         // skip "dead" player
-        while (this.getActivePlayer().isDead()) {
-            this.activePlayerIndex = (this.activePlayerIndex + 1) % this.players.length;
+        while (this.players[nextPlayerIndex].isDead()) {
+            nextPlayerIndex = (nextPlayerIndex + 1) % this.players.length;
         }
+		return nextPlayerIndex;
     }
+
+	nextPlayer() {
+		this.activePlayerIndex = this.getNextPlayerIndex();
+	}
 }

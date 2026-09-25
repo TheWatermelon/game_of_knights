@@ -34,6 +34,10 @@ class BotController {
         );
     }
 
+	getName() {
+		return "STUB bot";
+	}
+
     chooseAction() {
         // STUB
     }
@@ -68,9 +72,40 @@ class BotController {
     }
 }
 
+// RandomBot: self explainatory
+class RandomBot extends BotController {
+	getName() { return "Random bot"; }
+
+	chooseAction() {
+		const randInt = Math.floor((Math.random() * 3) + 1);
+
+		switch(randInt) {
+			case 1:
+				return GameState.ATTACK;
+			
+			case 2:
+				return GameState.SHIELD;
+
+			case 3:
+				return GameState.CHARGE;
+		}
+		// failsafe
+		return GameState.ATTACK;
+	}
+
+	chooseTarget() {
+		const targets = this.game.players.filter(player => !player.isDead());
+		const randPlayerIndex = Math.floor(Math.random() * targets.length);
+
+		return targets[randPlayerIndex];
+	}
+}
+
 // AgressiveBot: will always attack, and will choose the most vulnerable opponent
 class AggressiveBot extends BotController {
-    chooseAction() {
+    getName() { return "Aggressive bot"; }
+
+	chooseAction() {
         return GameState.ATTACK;
     }
 
@@ -86,10 +121,12 @@ class AggressiveBot extends BotController {
 
 // SafeBot: will choose a better shield before attacking the player with the lowest hp
 class SafeBot extends BotController {
-    chooseAction() {
+    getName() { return "Safe bot"; }
+
+	chooseAction() {
         const activePlayer = this.game.getActivePlayer();
         
-        if (CardManager.getValue(activePlayer.getShield()) < 9) {
+        if (CardManager.getValue(activePlayer.getShield()) < 10) {
             return GameState.SHIELD;
         } else {
             return GameState.ATTACK;
@@ -110,4 +147,86 @@ class SafeBot extends BotController {
                 return this.game.getActivePlayer();
         }
     }
+}
+
+// StrategicBot: first get good shield (greater than 7)
+// if they have a good shield, will change the opponents' best shield if greater than 7
+// else attack the opponent with the lowest shield
+// will attack the strongest opponent if they have a charge
+class StrategicBot extends BotController {
+	getName() { return "Strategic bot"; }
+
+	chooseAction() {
+		const activePlayer = this.game.getActivePlayer();
+
+		if (CardManager.getValue(activePlayer.getShield()) < 8) {
+			return GameState.SHIELD;
+		} else if (activePlayer.hasCharge()) {
+			return GameState.ATTACK;
+		} else {
+			const opponents = this.getOpponents();
+			const lastOppIndex = opponents.length - 1;
+
+			const strongerOpponent = opponents.sort((a, b) =>
+				CardManager.getValue(a.getShield()) - CardManager.getValue(b.getShield())
+			)[lastOppIndex];
+
+			if (CardManager.getValue(strongerOpponent.getShield()) > 7) {
+				return GameState.SHIELD;
+			} else {
+				return GameState.ATTACK;
+			}
+		}
+	}
+
+	chooseTarget() {
+		const activePlayer = this.game.getActivePlayer();
+
+		if (CardManager.getValue(activePlayer.getShield()) < 8) {
+			return activePlayer;
+		} else {
+			const opponents = this.getOpponents();
+			const lastOppIndex = opponents.length - 1;
+
+			const sortedOpponentsByShield = opponents.sort((a, b) =>
+				CardManager.getValue(a.getShield()) - CardManager.getValue(b.getShield())
+			);
+			const strongerOpponent = sortedOpponentsByShield[lastOppIndex];
+			const weakerOpponent = sortedOpponentsByShield[0];
+
+			if (CardManager.getValue(strongerOpponent.getShield()) > 7 || activePlayer.hasCharge()) {
+				return strongerOpponent;
+			} else {
+				return weakerOpponent;
+			}
+		}
+	}
+}
+
+// PoliticsBot: if they have multiple opponents, will charge the next in line only once
+// else they will act like SafeBot
+class PoliticsBot extends BotController {
+	constructor(game, inputController) {
+		super(game, inputController);
+		this.safeBot = new SafeBot(game, inputController);
+	}
+
+	getName() { return "Politics bot"; }
+
+	chooseAction() {
+		const opponents = this.getOpponents();
+		const nextPlayerIndex = this.game.getNextPlayerIndex();
+
+		if (opponents.length > 1 && !this.game.players[nextPlayerIndex].hasCharge()) { return GameState.CHARGE; }
+		else { return this.safeBot.chooseAction(); }
+	}
+
+	chooseTarget() {
+		if (this.game.getState() === GameState.CHARGE) {
+			const nextPlayerIndex = this.game.getNextPlayerIndex();
+			return this.game.players[nextPlayerIndex];
+		} else {
+			return this.safeBot.chooseTarget();
+		}
+	}
 }

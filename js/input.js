@@ -22,12 +22,35 @@ class InputController {
         this.animationManager = animationManager;
         this.game = game;
 
-        this.botController = new SafeBot(this.game, this);
+		this.botControllers = [
+			new RandomBot(this.game, this),
+			new AggressiveBot(this.game, this),
+			new SafeBot(this.game, this),
+			new StrategicBot(this.game, this),
+			new PoliticsBot(this.game, this)
+		];
 
         this.view.canvas.addEventListener("click", event => {
             this.handleClick(event);
         });
     }
+
+	initBots() {
+		const bots = this.game.getBots();
+		const fixedBots = [4,3,3,3];
+
+		for (let b = 0; b < bots.length; b++) {
+			bots[b].setBotBehaviour(fixedBots[b]);
+			bots[b].name = this.botControllers[fixedBots[b]].getName();
+		}
+		/*
+		for (let bot of bots) {
+			const randInt = Math.floor(Math.random() * this.botControllers.length);
+			bot.setBotBehaviour(randInt);
+			bot.name = this.botControllers[randInt].getName();
+		}
+		*/
+	}
 
     getCanvasPoint(event) {
         const rect = this.view.canvas.getBoundingClientRect();
@@ -89,9 +112,13 @@ class InputController {
 		for (let b = 0; b < this.view.mainMenuScreenChoosePlayersBoxes.length; b++) {
 			if (this.isPointInBox(point, this.view.mainMenuScreenChoosePlayersBoxes[b])) {
 				// Init the game with 2-4 players depending on the box we clicked on
-				this.game.initGameFor(b+2, ["Player 1", "Player 2", "Player 3", "Player 4"]);
-				// Show the game table
-				this.game.setState(GameState.TABLE);
+				this.game.initGameFor(
+					b+2, 
+					["Player 1", "Player 2", "Player 3", "Player 4"],
+					[true, true, true, true]
+				);
+				this.initBots();
+				this.startTurn();
 				return;
 			}
 		}
@@ -365,13 +392,16 @@ class InputController {
 		}
     }
 
+	// startTurn: if active player is human, show table; if bot, play bot's turn
     async startTurn() {
         const player = this.game.getActivePlayer();
-        
+
         this.game.setState(GameState.TABLE);
 
         if (player.isBot) {
-            await this.botController.playTurn();
+			const botBehaviourIndex = player.getBotBehaviour();
+			//await alert("Next bot, behaviour : "+player.getBotBehaviour());
+            await this.botControllers[botBehaviourIndex].playTurn();
         }
     }
 }
